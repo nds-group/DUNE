@@ -1,0 +1,12 @@
+#!/bin/bash
+# N=2
+echo Running Experiments:
+python3 /home/nds-admin/UNSW_PCAPS/hyb_code/with_FL_Metric/UNSW_model_analysis_FL_XCLASS_Ordered.py 1 /home/nds-admin/UNSW_PCAPS/hyb_code/with_FL_Metric/cluster_info_W_24CL_8cluster.csv /home/nds-admin/UNSW_PCAPS/hyb_code/with_FL_Metric/cluster_order_24CL_MACRO_withOptimizer_NOdelta_13June_53146720.csv &
+python3 /home/nds-admin/UNSW_PCAPS/hyb_code/with_FL_Metric/UNSW_model_analysis_FL_XCLASS_Ordered.py 2 /home/nds-admin/UNSW_PCAPS/hyb_code/with_FL_Metric/cluster_info_W_24CL_8cluster.csv /home/nds-admin/UNSW_PCAPS/hyb_code/with_FL_Metric/cluster_order_24CL_MACRO_withOptimizer_NOdelta_13June_53146720.csv &
+python3 /home/nds-admin/UNSW_PCAPS/hyb_code/with_FL_Metric/UNSW_model_analysis_FL_XCLASS_Ordered.py 3 /home/nds-admin/UNSW_PCAPS/hyb_code/with_FL_Metric/cluster_info_W_24CL_8cluster.csv /home/nds-admin/UNSW_PCAPS/hyb_code/with_FL_Metric/cluster_order_24CL_MACRO_withOptimizer_NOdelta_13June_53146720.csv &
+python3 /home/nds-admin/UNSW_PCAPS/hyb_code/with_FL_Metric/UNSW_model_analysis_FL_XCLASS_Ordered.py 4 /home/nds-admin/UNSW_PCAPS/hyb_code/with_FL_Metric/cluster_info_W_24CL_8cluster.csv /home/nds-admin/UNSW_PCAPS/hyb_code/with_FL_Metric/cluster_order_24CL_MACRO_withOptimizer_NOdelta_13June_53146720.csv &
+python3 /home/nds-admin/UNSW_PCAPS/hyb_code/with_FL_Metric/UNSW_model_analysis_FL_XCLASS_Ordered.py 5 /home/nds-admin/UNSW_PCAPS/hyb_code/with_FL_Metric/cluster_info_W_24CL_8cluster.csv /home/nds-admin/UNSW_PCAPS/hyb_code/with_FL_Metric/cluster_order_24CL_MACRO_withOptimizer_NOdelta_13June_53146720.csv &
+python3 /home/nds-admin/UNSW_PCAPS/hyb_code/with_FL_Metric/UNSW_model_analysis_FL_XCLASS_Ordered.py 6 /home/nds-admin/UNSW_PCAPS/hyb_code/with_FL_Metric/cluster_info_W_24CL_8cluster.csv /home/nds-admin/UNSW_PCAPS/hyb_code/with_FL_Metric/cluster_order_24CL_MACRO_withOptimizer_NOdelta_13June_53146720.csv &
+python3 /home/nds-admin/UNSW_PCAPS/hyb_code/with_FL_Metric/UNSW_model_analysis_FL_XCLASS_Ordered.py 7 /home/nds-admin/UNSW_PCAPS/hyb_code/with_FL_Metric/cluster_info_W_24CL_8cluster.csv /home/nds-admin/UNSW_PCAPS/hyb_code/with_FL_Metric/cluster_order_24CL_MACRO_withOptimizer_NOdelta_13June_53146720.csv &
+python3 /home/nds-admin/UNSW_PCAPS/hyb_code/with_FL_Metric/UNSW_model_analysis_FL_XCLASS_Ordered.py 8 /home/nds-admin/UNSW_PCAPS/hyb_code/with_FL_Metric/cluster_info_W_24CL_8cluster.csv /home/nds-admin/UNSW_PCAPS/hyb_code/with_FL_Metric/cluster_order_24CL_MACRO_withOptimizer_NOdelta_13June_53146720.csv &
+

@@ -1,0 +1,9 @@
+#!/bin/bash
+# N=2
+echo Running Experiments:
+python3 /home/nds-admin/distributed_in_band/ToN-IoT/src/ToN-IoT_model_analysis_FL_Ordered.py 1 /home/nds-admin/distributed_in_band/ToN-IoT/cluster_info/cluster_info_ToN-IoT_10CL_6cluster.csv /home/nds-admin/distributed_in_band/ToN-IoT/cluster_info/cluster_order_10CL_MACRO_withOptimizer_6Cluster_051342.csv &
+python3 /home/nds-admin/distributed_in_band/ToN-IoT/src/ToN-IoT_model_analysis_FL_Ordered.py 2 /home/nds-admin/distributed_in_band/ToN-IoT/cluster_info/cluster_info_ToN-IoT_10CL_6cluster.csv /home/nds-admin/distributed_in_band/ToN-IoT/cluster_info/cluster_order_10CL_MACRO_withOptimizer_6Cluster_051342.csv &
+python3 /home/nds-admin/distributed_in_band/ToN-IoT/src/ToN-IoT_model_analysis_FL_Ordered.py 3 /home/nds-admin/distributed_in_band/ToN-IoT/cluster_info/cluster_info_ToN-IoT_10CL_6cluster.csv /home/nds-admin/distributed_in_band/ToN-IoT/cluster_info/cluster_order_10CL_MACRO_withOptimizer_6Cluster_051342.csv &
+python3 /home/nds-admin/distributed_in_band/ToN-IoT/src/ToN-IoT_model_analysis_FL_Ordered.py 4 /home/nds-admin/distributed_in_band/ToN-IoT/cluster_info/cluster_info_ToN-IoT_10CL_6cluster.csv /home/nds-admin/distributed_in_band/ToN-IoT/cluster_info/cluster_order_10CL_MACRO_withOptimizer_6Cluster_051342.csv &
+python3 /home/nds-admin/distributed_in_band/ToN-IoT/src/ToN-IoT_model_analysis_FL_Ordered.py 5 /home/nds-admin/distributed_in_band/ToN-IoT/cluster_info/cluster_info_ToN-IoT_10CL_6cluster.csv /home/nds-admin/distributed_in_band/ToN-IoT/cluster_info/cluster_order_10CL_MACRO_withOptimizer_6Cluster_051342.csv &
+python3 /home/nds-admin/distributed_in_band/ToN-IoT/src/ToN-IoT_model_analysis_FL_Ordered.py 6 /home/nds-admin/distributed_in_band/ToN-IoT/cluster_info/cluster_info_ToN-IoT_10CL_6cluster.csv /home/nds-admin/distributed_in_band/ToN-IoT/cluster_info/cluster_order_10CL_MACRO_withOptimizer_6Cluster_051342.csv &

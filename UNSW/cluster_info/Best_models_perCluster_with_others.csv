@@ -1,0 +1,10 @@
+,Cluster,Class List,Feats_Names_With_Others,Depth_With_Others,Tree_With_Others,Feats_With_Others,N_Leaves_With_Others,N_With_Others,Macro_f1_FL_With_Others,Weighted_f1_FL_With_Others,Micro_f1_FL_With_Others
+0,-1,"['Blipcare Blood Pressure meter', 'IPhone']",,,,,,,,,
+1,0,"['PIX-STAR Photo-frame', 'Android Phone', 'TP-Link Smart plug', 'TP-Link Day Night Cloud camera']","['ip.len', 'udp.length', 'tcp.window_size_value', 'srcport', 'dstport', 'ip.ttl']",14.0,2.0,6.0,261.0,2.0,58.65673580463475,96.11952722896078,96.74055020986788
+2,1,"['Samsung SmartCam', 'Amazon Echo', 'Belkin wemo motion sensor', 'Laptop', 'Insteon Camera', 'iHome', 'Withings Smart scale', 'Withings Aura smart sleep sensor']","['ip.ttl', 'udp.length', 'ip.len', 'srcport', 'tcp.flags.rst', 'dstport', 'tcp.window_size_value', 'tcp.hdr_len']",17.0,1.0,8.0,437.0,3.0,88.61076612408702,89.81381854916687,89.80043902171717
+3,2,"['MacBook', 'HP Printer']","['tcp.hdr_len', 'srcport', 'tcp.window_size_value', 'ip.ttl', 'dstport']",10.0,1.0,5.0,129.0,3.0,83.43516470908537,98.16249262961394,98.1766571875376
+4,3,"['Light Bulbs LiFX Smart Bulb', 'Netatmo weather station', 'Smart Things']","['ip.len', 'dstport', 'ip.ttl']",11.0,1.0,3.0,129.0,2.0,99.4320990660876,99.94735901220456,99.94740548287673
+5,4,"['Netatmo Welcome', 'Belkin Wemo switch']","['Packet Length Total', 'Max Packet Length', 'Packet Length Mean', 'tcp.window_size_value', 'ip.len', 'dstport', 'srcport', 'ip.ttl']",17.0,1.0,8.0,261.0,3.0,92.96614773881771,98.74263303707221,98.77022863047634
+6,5,"['NEST Protect smoke alarm', 'Withings Smart Baby Monitor']","['ip.len', 'tcp.window_size_value', 'Flow Duration', 'dstport', 'udp.length', 'srcport', 'ip.ttl']",10.0,1.0,7.0,129.0,2.0,89.28533392371494,98.89465268688056,98.99107181321592
+7,6,"['Samsung Galaxy Tab', 'Triby Speaker']","['tcp.window_size_value', 'ip.len', 'dstport', 'srcport', 'udp.length']",16.0,1.0,5.0,437.0,2.0,79.79109754276833,93.75112781614561,94.11479605337558
+8,7,['Dropcam'],"['srcport', 'Flow Duration', 'udp.length', 'ip.len', 'ip.ttl']",8.0,4.0,5.0,41.0,2.0,96.66637199686714,99.99915522838626,99.99918247818064

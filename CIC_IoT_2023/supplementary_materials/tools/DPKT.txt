@@ -1,0 +1,6 @@
+DPKT
+
+dpkt is a python module for fast, simple packet creation / parsing, with definitions for the basic TCP/IP protocols
+
+
+https://dpkt.readthedocs.io/en/latest/

@@ -1,0 +1,8 @@
+,Cluster,Class List,Feature List,Depth,Tree,Feats
+0,-1,"['MacBook', 'HP Printer', 'PIX-STAR Photo-frame', 'Android Phone', 'TP-Link Smart plug', 'TP-Link Day Night Cloud camera', 'Dropcam', 'Blipcare Blood Pressure meter', 'IPhone']",-1,-1,-1,-1
+1,0,"['Amazon Echo', 'Laptop', 'Insteon Camera', 'iHome', 'Withings Smart scale', 'Withings Aura smart sleep sensor']","['udp.length', 'ip.len', 'tcp.hdr_len', 'tcp.window_size_value', 'ip.ttl', 'srcport', 'tcp.flags.rst', 'dstport', 'Packet Length Mean', 'Packet Length Total']",-1,-1,-1
+2,1,"['Light Bulbs LiFX Smart Bulb', 'Netatmo weather station', 'Smart Things']","['dstport', 'ip.ttl', 'srcport', 'udp.length', 'tcp.hdr_len', 'ip.len', 'tcp.window_size_value', 'Flow IAT Mean']",-1,-1,-1
+3,2,"['Samsung SmartCam', 'Belkin wemo motion sensor']","['tcp.window_size_value', 'srcport', 'udp.length', 'ip.len', 'Packet Length Total', 'Max Packet Length', 'dstport']",-1,-1,-1
+4,3,"['Samsung Galaxy Tab', 'Triby Speaker']","['dstport', 'ip.len', 'srcport', 'tcp.window_size_value', 'udp.length']",-1,-1,-1
+5,4,"['Netatmo Welcome', 'Belkin Wemo switch']","['tcp.window_size_value', 'ip.ttl', 'dstport', 'Packet Length Total', 'srcport', 'Packet Length Mean', 'ip.len', 'Max Packet Length']",-1,-1,-1
+6,5,"['NEST Protect smoke alarm', 'Withings Smart Baby Monitor']","['udp.length', 'ip.len', 'tcp.window_size_value', 'ip.ttl', 'srcport', 'Flow Duration', 'dstport', 'Flow IAT Max', 'Flow IAT Mean']",-1,-1,-1

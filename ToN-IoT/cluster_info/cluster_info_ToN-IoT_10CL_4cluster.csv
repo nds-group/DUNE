@@ -1,0 +1,5 @@
+,Cluster,Class List,Feature List,Depth,Tree,Feats
+0,0,"['mitm', 'xss', 'ransomware', 'ddos']","['ip.len', 'Max Packet Length', 'srcport', 'Packet Length Total', 'tcp.window_size_value', 'udp.length', 'Min Packet Length', 'dstport', 'SYN Flag Count', 'FIN Flag Count']",-1,-1,-1
+1,1,"['injection', 'password', 'scanning']","['dstport', 'Packet Length Total', 'ip.ttl', 'tcp.window_size_value', 'ip.len', 'Max Packet Length', 'tcp.hdr_len', 'Min Packet Length', 'udp.length']",-1,-1,-1
+2,2,"['normal']","['ip.ttl', 'ip.len', 'udp.length', 'tcp.window_size_value', 'dstport']",-1,-1,-1
+3,3,"['dos', 'backdoor']","['srcport', 'Max Packet Length', 'Min Packet Length', 'tcp.window_size_value', 'ip.ttl', 'Packet Length Total', 'SYN Flag Count', 'dstport', 'ACK Flag Count', 'ip.len']",-1,-1,-1
