@@ -369,12 +369,8 @@ def analyze_model_n_packets(npkts, outfile, feats_to_use, time):
 # # #### 1st n packets
 for nd in range(2,5):
     print("Number of Packets for Flow Features: ", nd)
-    f_name = "/home/nds-admin/distributed_in_band/ToN-IoT/model_analysis_results/clustering_results/ton_models_"+str(nd)+"pkts_PF_WB_4CL_noTime_Cluster"+str(int(sys.argv[1])-1)+"_6Cluster.csv"
+    f_name = "/home/ddeandres/distributed_in_band/ToN-IoT/model_analysis_results/clustering_results/ton_models_"+str(nd)+"pkts_PF_WB_4CL_noTime_Cluster"+str(int(sys.argv[1])-1)+"_SPP.csv"
     analyze_model_n_packets(nd, f_name, feats_important, "normal")
-
-
-
-
 # %%
 
 

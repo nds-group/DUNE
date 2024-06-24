@@ -381,9 +381,9 @@ def analyze_model_n_packets(npkts, outfile, feats_to_use, time):
     analyze_models(classes, "RF", depths, trees, X_train, y_train, X_test, y_test, sample_nat_test, y_multiply, test_flow_pkt_cnt,test_flow_IDs, val_of_max_leaves, test_labels, test_indices, max_feat, outfile, weight_of_samples)
 
 # # #### 1st n packets
-for nd in range(3,5):
+for nd in range(2,5):
     print("Number of Packets for Flow Features: ", nd)
-    f_name = "/home/nds-admin/distributed_in_band/ToN-IoT/model_analysis_results/clustering_results/6CLuster_Ordered/ToN-IoT_models_"+str(nd)+"pkts_10CL_Cluster"+str(int(sys.argv[1])-1)+"_MACRO_Ordered_withOptimizer_NOdelta_051342.csv"
+    f_name = "/home/ddeandres/distributed_in_band/ToN-IoT/model_analysis_results/clustering_results/6CLuster_Ordered/ToN-IoT_models_"+str(nd)+"pkts_10CL_SPP_Cluster"+str(int(sys.argv[1])-1)+"_MACRO_Ordered_withOptimizer_NOdelta_2013.csv"
     analyze_model_n_packets(nd, f_name, feats_important, "normal")
 
 
