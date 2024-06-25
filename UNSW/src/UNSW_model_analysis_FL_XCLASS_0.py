@@ -62,6 +62,10 @@ feats_no_time = ["ip.len","ip.ttl","tcp.flags.syn","tcp.flags.ack","tcp.flags.pu
             "Min Packet Length","Max Packet Length","Packet Length Total",\
                 "SYN Flag Count","ACK Flag Count","PSH Flag Count","FIN Flag Count","RST Flag Count","ECE Flag Count"]
 
+
+classes_filter = ['Amazon Echo', 'Android Phone', 'Belkin Wemo switch', 'Belkin wemo motion sensor', 'Blipcare Blood Pressure meter', 'Dropcam', 'HP Printer', 'IPhone', 'Insteon Camera', 'Laptop', 'Light Bulbs LiFX Smart Bulb', 'MacBook', 'NEST Protect smoke alarm', 'Netatmo Welcome', 'Netatmo weather station', 'PIX-STAR Photo-frame', 'Samsung Galaxy Tab', 'Samsung SmartCam', 'Smart Things', 'TP-Link Day Night Cloud camera']
+
+
 # feats_important = ['dstport', 'tcp.window_size_value', 'srcport', 'ip.ttl', 'ip.len', 'udp.length', 'Packet Length Total', 'Packet Length Mean']
 # feats_important = ['ip.len', 'udp.length', 'tcp.hdr_len', 'tcp.window_size_value', 'ip.ttl', 'tcp.flags.rst', 'dstport', 'srcport', 'Packet Length Mean', 'Packet Length Total']
 feats_important = pd.read_csv(sys.argv[2])['Feature List'].to_list()[int(sys.argv[1])][2:-2].split("', '")
@@ -300,6 +304,9 @@ def analyze_model_n_packets(npkts, outfile, feats_to_use, time):
     if(time=="normal"):
         train_data = pd.read_csv("/home/nds-admin/UNSW_PCAPS/train/train_data_hybrid/train_data_"+str(npkts)+".csv")
         test_data = pd.read_csv("/home/nds-admin/UNSW_PCAPS/test/csv_files/16-10-05.pcap.txt_"+str(npkts)+"_pkts.csv")
+        if classes_filter is not None:
+            train_data = train_data.loc[train_data['Label'].isin(classes_filter)]
+            test_data = test_data.loc[test_data['Label'].isin(classes_filter)]
     #
     flow_pkt_counts = pd.read_csv("/home/nds-admin/UNSW_PCAPS/hyb_code/16-10-05-flow-counts.csv")
     #
@@ -377,9 +384,9 @@ def analyze_model_n_packets(npkts, outfile, feats_to_use, time):
     analyze_models(classes, "RF", depths, trees, X_train, y_train, X_test, y_test, sample_nat_test, y_multiply, test_flow_pkt_cnt,test_flow_IDs, val_of_max_leaves, test_labels, test_indices, max_feat, outfile, weight_of_samples)
 
 # # #### 1st n packets
-for nd in range(4,5):
+for nd in [2,3]:
     print("Number of Packets for Flow Features: ", nd)
-    f_name = "/home/nds-admin/UNSW_PCAPS/hyb_code/with_FL_Metric/cluster_model_analysis_results/Proportional_fairness/unsw_models_"+str(nd)+"pkts_PF_WB_24CL_Cluster"+str(int(sys.argv[1])-1)+"_11CLUSTER.csv"
+    f_name = "/home/ddeandres/distributed_in_band/UNSW/model_analysis_results/SPP/unsw_models_"+str(nd)+"pkts_PF_WB_20CL_Cluster"+str(int(sys.argv[1])-1)+"_SPP.csv"
     analyze_model_n_packets(nd, f_name, feats_important, "normal")
 
 
