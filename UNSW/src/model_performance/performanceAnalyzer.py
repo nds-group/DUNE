@@ -8,6 +8,8 @@ import pandas as pd
 import os
 import re
 
+flow_pkts_data_file_path = "/home/nds-admin/UNSW_PCAPS/hyb_code/16-10-05-flow-counts.csv"
+
 # list of all extracted features
 feats_all = ["ip.len", 'ip.hdr_len', "ip.ttl", "tcp.flags.syn", "tcp.flags.ack", "tcp.flags.push", "tcp.flags.fin",
              "tcp.flags.rst", "tcp.flags.reset", "tcp.flags.ece", "ip.proto", "srcport", "dstport",
@@ -18,10 +20,6 @@ feats_all = ["ip.len", 'ip.hdr_len', "ip.ttl", "tcp.flags.syn", "tcp.flags.ack",
 
 feats_sizes = [16, 16, 8, 1, 1, 1, 1, 1, 1,1, 8, 16, 16, 16, 4, 16, 16, 16, 16,16, 16, 16, 16, 32, 32, 32, 32, 8, 8, 8,
                8, 8, 8, 16]
-
-feats_size_dict = {}
-for f_ind in range(0, len(feats_all)):
-    feats_size_dict[feats_all[f_ind]] = feats_sizes[f_ind]
 
 available_TCAM_table = 24 * 12
 
@@ -71,6 +69,9 @@ def calculate_tcam_for_codetables(models_df):
 
 
 def calculate_tcam_for_featable(models_df):
+    feats_size_dict = {}
+    for f_ind in range(0, len(feats_all)):
+        feats_size_dict[feats_all[f_ind]] = feats_sizes[f_ind]
     feats_for_all_models = list(models_df['feats'])
     tcam_usage_per_model = []
     for feats_in_models in feats_for_all_models:
@@ -105,6 +106,10 @@ def select_best_models_per_cluster(cluster_info, score_per_class_df, folder_name
 
     for file in os.listdir(directory):
         file_string = file.decode("utf-8")
+        path = os.path.join(folder_name, file_string)
+        if os.path.isdir(path):
+            # skip directories
+            continue
         grep_data = pattern.findall(file_string)
         n_point = int(grep_data[0])
         total_n_classes = int(grep_data[1])
@@ -164,37 +169,44 @@ def select_best_models_per_cluster(cluster_info, score_per_class_df, folder_name
 
     return cluster_info, score_per_class_df
 
-cluster_data_file_path = '/home/ddeandres/distributed_in_band/UNSW/cluster_info/UNSW_SPP_solution.csv'
-flow_pkts_data_file_path = "/home/nds-admin/UNSW_PCAPS/hyb_code/16-10-05-flow-counts.csv"
-model_analysis_dir_path = '/home/ddeandres/distributed_in_band/UNSW/cluster_model_analysis_results/test'
 
-### Initialize dataframes to use for statistics
-cluster_info = pd.read_csv(cluster_data_file_path,
-                           converters=dict.fromkeys(['Class List', 'Feature List'], literal_converter))
+def calculate_F1_score(cluster_data_file_path, model_analysis_dir_path):
+    results_path = f'{model_analysis_dir_path}/perf_results'
 
-classes = list(chain.from_iterable(cluster_info['Class List'].to_list()))
-classes.sort()
+    ### Initialize dataframes to use for statistics
+    cluster_info = pd.read_csv(cluster_data_file_path,
+                               converters=dict.fromkeys(['Class List', 'Feature List'], literal_converter))
 
-flow_pkt_counts = pd.read_csv(flow_pkts_data_file_path)
-support = flow_pkt_counts['label'].value_counts().loc[classes].sort_index()
+    classes = list(chain.from_iterable(cluster_info['Class List'].to_list()))
+    classes.sort()
 
-
-score_per_class_df = pd.DataFrame({'class': classes, 'support': support.to_list()})
-
-score_per_class_df['Cluster'] = [-1]*len(score_per_class_df)
-score_per_class_df['Cluster_F1_Score_With_Others'] = [-1]*len(score_per_class_df)
+    flow_pkt_counts = pd.read_csv(flow_pkts_data_file_path)
+    support = flow_pkt_counts['label'].value_counts().loc[classes].sort_index()
 
 
-cluster_info = cluster_info.drop(['Unnamed: 0'], axis=1)
-cluster_info = cluster_info.set_index('Cluster', drop=True)
-cluster_info, score_per_cluster_per_class_df = select_best_models_per_cluster(cluster_info, score_per_class_df,
-                                                                              model_analysis_dir_path)
+    score_per_class_df = pd.DataFrame({'class': classes, 'support': support.to_list()})
 
-## total TCAM usage
-total_TCAM = sum(cluster_info['Total_TCAM_Usage'].to_list()[1:])
+    score_per_class_df['Cluster'] = [-1]*len(score_per_class_df)
+    # score_per_class_df['Cluster_F1_Score_With_Others'] = [-1]*len(score_per_class_df)
 
-# score_calc_df = score_per_class_df[score_per_class_df['f1_score']>5]
-score_per_class_df['mult_With_Others'] = score_per_class_df['Cluster_F1_Score']*score_per_class_df['support']
-scores = calculate_score(np.sum(np.array(score_per_class_df['support'])), score_per_class_df['mult_With_Others'],
-                         score_per_class_df['Cluster_F1_Score'])
-print(scores)
+
+    cluster_info = cluster_info.drop(['Unnamed: 0'], axis=1)
+    cluster_info = cluster_info.set_index('Cluster', drop=True)
+    cluster_info, score_per_cluster_per_class_df = select_best_models_per_cluster(cluster_info, score_per_class_df,
+                                                                                  model_analysis_dir_path)
+
+    #Create folder for saving results
+    if not os.path.exists(results_path):
+        os.makedirs(results_path)
+
+    cluster_info.to_csv(f'{results_path}/cluster_info_df.csv')
+    score_per_cluster_per_class_df.to_csv(f'{results_path}/score_per_cluster_per_class_df.csv')
+
+    ## total TCAM usage
+    total_TCAM = sum(cluster_info['Total_TCAM_Usage'].to_list()[1:])
+
+    # score_calc_df = score_per_class_df[score_per_class_df['f1_score']>5]
+    score_per_class_df['mult_With_Others'] = score_per_class_df['Cluster_F1_Score']*score_per_class_df['support']
+    scores = calculate_score(np.sum(np.array(score_per_class_df['support'])), score_per_class_df['mult_With_Others'],
+                             score_per_class_df['Cluster_F1_Score'])
+    return scores

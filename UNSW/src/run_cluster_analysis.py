@@ -1,3 +1,4 @@
+from model_performance.performanceAnalyzer import calculate_F1_score
 from model_analysis.modelAnalyzer import ModelAnalyzer
 from multiprocessing import Pool
 from ast import literal_eval
@@ -18,6 +19,7 @@ results_dir_path = '/home/ddeandres/distributed_in_band/UNSW/cluster_model_analy
 
 force_rewrite = False
 
+
 def literal_converter(val):
     # replace first val with '' or some other null identifier if required
     return val if val == '' else literal_eval(val)
@@ -26,15 +28,6 @@ def literal_converter(val):
 cluster_info = pd.read_csv(cluster_data_file_path,
                            converters=dict.fromkeys(['Class List', 'Feature List'], literal_converter))
 
-
-# def run_analysis(n_point, cluster_id):
-#     print(f"Starting analysis of: Cluster id: {cluster_id}, npoint {n_point}")
-#     f_name = f"{results_dir_path}/unsw_models_{n_point}pkts_PF_WB_20CL_Cluster{cluster_id}.csv"
-#     model_analyzer = ModelAnalyzer(train_data_dir_path, test_data_dir_path, flow_counts_file_path,
-#                                    classes_filter, cluster_data_file_path)
-#     model_analyzer.load_cluster_data(cluster_info.loc[cluster_id])
-#     model_analyzer.analyze_model_n_packets(n_point, f_name)
-#     print(f"Finished analyzing n={n_point}, Cluster={cluster_id}. Results at: {results_dir_path}")n
 
 def run_analysis(input_data):
     n_point = input_data[0]
@@ -49,12 +42,14 @@ def run_analysis(input_data):
 
 
 inference_points_list = list(range(2, 5))
-# cluster_id_list = cluster_info['Cluster'].to_list()
-cluster_id_list = [4]
+cluster_id_list = cluster_info['Cluster'].to_list()
+consumed_cores = min([32, len(inference_points_list)*len(cluster_id_list)])
+print(f'Will use {consumed_cores} cores. Starting pool...')
 
-with Pool(processes=24) as pool:
+with Pool(processes=consumed_cores) as pool:
     for result in pool.imap_unordered(run_analysis, list(product(inference_points_list, cluster_id_list))):
-        pass # or do something with result, if pool_tasks returns a value
+        pass  # or do something with result, if pool_tasks returns a value
 #     # pool.starmap(run_analysis, zip(list(range(2, 5)), list(range(3))), chunksize=1)
 
-# run_analysis(list(zip(list(range(2, 5)), list(range(3))))[0])
+
+print(calculate_F1_score(cluster_data_file_path, results_dir_path))
