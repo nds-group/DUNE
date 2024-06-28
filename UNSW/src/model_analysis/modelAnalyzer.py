@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report
+from os import path
 
 import warnings
 
@@ -68,8 +69,8 @@ class ModelAnalyzer:
 
         train_data['Label_NEW'] = np.where((train_data['Label'].isin(self.classes)), train_data['Label'], 'Other')
         test_data['Label_NEW'] = np.where((test_data['Label'].isin(self.classes)), test_data['Label'], 'Other')
-        print(train_data['Label_NEW'].value_counts())
-        print(test_data['Label_NEW'].value_counts())
+        # print(train_data['Label_NEW'].value_counts())
+        # print(test_data['Label_NEW'].value_counts())
 
         train_data['sample_nature'] = train_data.apply(assign_sample_nature, axis=1)
         test_data['sample_nature'] = test_data.apply(assign_sample_nature, axis=1)
@@ -129,13 +130,19 @@ class ModelAnalyzer:
         return []
 
     #
-    def analyze_model_n_packets(self, npkts, outfile):
+    def analyze_model_n_packets(self, npkts, outfile, force=False):
         """Function for grid search on hyperparameters, features and models"""
+        if not force:
+            if path.isfile(outfile):
+                print(f"File {outfile} is present. To overwrite existing files pass force=True when running the"
+                      f" analysis")
+                return
+
         # Get Variables and Labels
         train_data, test_data = self.prepare_data(npkts, self.classes_filter)
 
         test_labels, test_indices = self.get_test_labels(test_data)
-        print("Num Labels: ", len(test_labels))
+        # print("Num Labels: ", len(test_labels))
 
         weight_of_samples = list(train_data['weight'])
 
@@ -161,14 +168,14 @@ class ModelAnalyzer:
         # classes.append('Other')
         classes = list(set(cluster_data_series['Class List']))
         classes.append('Other')
-        print(f'Cluster ID: {cluster_data_series["Cluster"]}', classes)
+        # print(f'Cluster ID: {cluster_data_series["Cluster"]}', classes)
         #
         classes_df = pd.DataFrame(classes, columns=['class'])
         classes_df = classes_df.reset_index()
         #
         # feats_important = pd.read_csv(cluster_data_file_path)['Feature List'].to_list()[cluster_id][2:-2].split("', '")
         feats_important = cluster_data_series['Feature List']
-        print(f'Cluster ID: {cluster_data_series["Cluster"]}', feats_important)
+        # print(f'Cluster ID: {cluster_data_series["Cluster"]}', feats_important)
         self.feats_important = feats_important
         self.classes = classes
         self.classes_df = classes_df
