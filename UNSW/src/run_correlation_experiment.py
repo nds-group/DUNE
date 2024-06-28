@@ -70,7 +70,7 @@ def run_experiment(folder, cores):
             os.makedirs(results_folder)
 
         logger.info(f'Will use {consumed_cores} cores. Starting pool...')
-        input_data = list(product(inference_points_list, cluster_id_list, [str(results_folder)]))
+        input_data = list(product(inference_points_list, cluster_id_list, [str(path)]))
         with Pool(processes=cores) as pool:
             for result in pool.imap_unordered(run_analysis, input_data):
                 pass
