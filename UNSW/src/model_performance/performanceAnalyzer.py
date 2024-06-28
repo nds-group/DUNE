@@ -105,11 +105,13 @@ def select_best_models_per_cluster(cluster_info, score_per_class_df, folder_name
     pattern = re.compile('[0-9]+')
 
     for file in os.listdir(directory):
+        if 'solution.csv' in file:
+            continue # this is the solution file
         file_string = file.decode("utf-8")
         path = os.path.join(folder_name, file_string)
         if os.path.isdir(path):
             # skip directories
-            continue
+            continue # this is a subdirectory for other stuff
         grep_data = pattern.findall(file_string)
         n_point = int(grep_data[0])
         total_n_classes = int(grep_data[1])

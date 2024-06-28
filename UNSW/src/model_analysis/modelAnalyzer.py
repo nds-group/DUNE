@@ -8,7 +8,8 @@ import warnings
 
 class ModelAnalyzer:
     def __init__(self, train_data_folder_path, test_data_folder_path, flow_counts_file_path, classes_filter,
-                 cluster_data_file_path):
+                 cluster_data_file_path, logger):
+        self.logger = logger
         self.cluster_data_file_path = cluster_data_file_path
         self.number_of_clusters = pd.read_csv(cluster_data_file_path).shape[0]
         self.train_data_folder_path = train_data_folder_path
@@ -69,8 +70,8 @@ class ModelAnalyzer:
 
         train_data['Label_NEW'] = np.where((train_data['Label'].isin(self.classes)), train_data['Label'], 'Other')
         test_data['Label_NEW'] = np.where((test_data['Label'].isin(self.classes)), test_data['Label'], 'Other')
-        # print(train_data['Label_NEW'].value_counts())
-        # print(test_data['Label_NEW'].value_counts())
+        self.logger.debug(f"Train data count: {train_data['Label_NEW'].value_counts()}")
+        self.logger.debug(f"Test data count: {test_data['Label_NEW'].value_counts()}")
 
         train_data['sample_nature'] = train_data.apply(assign_sample_nature, axis=1)
         test_data['sample_nature'] = test_data.apply(assign_sample_nature, axis=1)
@@ -90,43 +91,41 @@ class ModelAnalyzer:
                 ';pkt_weighted_f1;flw_macro_f1;flw_weighted_f1;F1_macro;F1_weighted;num_samples;Macro_F1_PL'
                 ';Weighted_F1_PL;Micro_F1_PL;cl_report_FL;cl_report_PL',
                 file=res_file)
-            if model_type == 'RF':
-                # FOR EACH (depth, n_tree, feat)
-                for n_tree in n_trees:
-                    # for depth in depths:
-                    depth = depths
-                    for leaf in max_leaf:
-                        # get feature orders to use
-                        importance = get_feature_importance(depth, n_tree, leaf, X_train, y_train, weight_of_samples)
-                        m_feats = get_fewest_features(depth, n_tree, leaf, importance)
-                        for feats in m_feats:
-                            # Get the scores with the given (depth, n_tree, feat)
-                            model, c_report, macro_f1, weight_f1, y_pred = get_scores(classes, depth, n_tree, feats,
-                                                                                      leaf, X_train, y_train, X_test,
-                                                                                      y_test, test_indices, test_labels,
-                                                                                      weight_of_samples)
-                            #
-                            pkt_macro_f1, pkt_weighted_f1, flw_macro_f1, flw_weighted_f1 = compute_flow_pkt_scores(
-                                y_pred,
-                                y_test,
-                                samples_nature,
-                                test_indices,
-                                test_labels)
-                            #
-                            num_samples, macro_f1_PL, weighted_f1_PL, micro_f1_PL, cl_report_PL, macro_f1_FL, weighted_f1_FL, micro_f1_FL, cl_report_FL = expand_rows_and_get_scores(
-                                y_test, y_pred, samples_nature, y_multiply, test_flow_pkt_cnt, test_flow_IDs,
-                                test_indices,
-                                test_labels)
-                            #
-                            depth = [estimator.tree_.max_depth for estimator in model.estimators_]
-                            print(str(depth) + ';' + str(n_tree) + ';' + str(len(feats)) + ';' + str(leaf) + ";" + str(
-                                macro_f1_FL) + ";" + str(weighted_f1_FL) + ";" + str(micro_f1_FL) + ";" + str(
-                                list(feats)) + ';' + str(pkt_macro_f1) + ';' + str(pkt_weighted_f1) + ';' + str(
-                                flw_macro_f1) + ';' + str(flw_weighted_f1) + ';' + str(macro_f1) + ';' + str(
-                                weight_f1) + ';' + str(num_samples) + ';' + str(macro_f1_PL) + ';' + str(
-                                weighted_f1_PL) + ';' + str(micro_f1_PL) + ';' + str(cl_report_FL) + ';' + str(
-                                cl_report_PL), file=res_file)
-        print("Analysis Complete. Check output file.")
+            # FOR EACH (depth, n_tree, feat)
+            for n_tree in n_trees:
+                # for depth in depths:
+                depth = depths
+                for leaf in max_leaf:
+                    # get feature orders to use
+                    importance = get_feature_importance(depth, n_tree, leaf, X_train, y_train, weight_of_samples)
+                    m_feats = get_fewest_features(depth, n_tree, leaf, importance)
+                    for feats in m_feats:
+                        # Get the scores with the given (depth, n_tree, feat)
+                        model, c_report, macro_f1, weight_f1, y_pred = get_scores(classes, depth, n_tree, feats,
+                                                                                  leaf, X_train, y_train, X_test,
+                                                                                  y_test, test_indices, test_labels,
+                                                                                  weight_of_samples)
+                        #
+                        pkt_macro_f1, pkt_weighted_f1, flw_macro_f1, flw_weighted_f1 = compute_flow_pkt_scores(
+                            y_pred,
+                            y_test,
+                            samples_nature,
+                            test_indices,
+                            test_labels)
+                        #
+                        num_samples, macro_f1_PL, weighted_f1_PL, micro_f1_PL, cl_report_PL, macro_f1_FL, weighted_f1_FL, micro_f1_FL, cl_report_FL = expand_rows_and_get_scores(
+                            y_test, y_pred, samples_nature, y_multiply, test_flow_pkt_cnt, test_flow_IDs,
+                            test_indices,
+                            test_labels)
+                        #
+                        depth = [estimator.tree_.max_depth for estimator in model.estimators_]
+                        print(str(depth) + ';' + str(n_tree) + ';' + str(len(feats)) + ';' + str(leaf) + ";" + str(
+                            macro_f1_FL) + ";" + str(weighted_f1_FL) + ";" + str(micro_f1_FL) + ";" + str(
+                            list(feats)) + ';' + str(pkt_macro_f1) + ';' + str(pkt_weighted_f1) + ';' + str(
+                            flw_macro_f1) + ';' + str(flw_weighted_f1) + ';' + str(macro_f1) + ';' + str(
+                            weight_f1) + ';' + str(num_samples) + ';' + str(macro_f1_PL) + ';' + str(
+                            weighted_f1_PL) + ';' + str(micro_f1_PL) + ';' + str(cl_report_FL) + ';' + str(
+                            cl_report_PL), file=res_file)
         return []
 
     #
@@ -134,7 +133,7 @@ class ModelAnalyzer:
         """Function for grid search on hyperparameters, features and models"""
         if not force:
             if path.isfile(outfile):
-                print(f"File {outfile} is present. To overwrite existing files pass force=True when running the"
+                self.logger.info(f"File {outfile} is present. To overwrite existing files pass force=True when running the"
                       f" analysis")
                 return
 
@@ -142,7 +141,7 @@ class ModelAnalyzer:
         train_data, test_data = self.prepare_data(npkts, self.classes_filter)
 
         test_labels, test_indices = self.get_test_labels(test_data)
-        # print("Num Labels: ", len(test_labels))
+        self.logger.debug(f'Num Labels: {len(test_labels)}')
 
         weight_of_samples = list(train_data['weight'])
 
@@ -161,6 +160,7 @@ class ModelAnalyzer:
         self.analyze_models(self.classes, "RF", depths, trees, X_train, y_train, X_test, y_test,
                             sample_nat_test, y_multiply, test_flow_pkt_cnt, test_flow_IDs, val_of_max_leaves,
                             test_labels, test_indices, outfile, weight_of_samples)
+        self.logger.debug(f'Analysis completed. Check output file: {outfile}')
 
     def load_cluster_data(self, cluster_data_series):
         # classes_str = str(pd.read_csv(cluster_data_file_path)['Class List'].to_list()[cluster_id])[2:-2]
@@ -168,14 +168,14 @@ class ModelAnalyzer:
         # classes.append('Other')
         classes = list(set(cluster_data_series['Class List']))
         classes.append('Other')
-        # print(f'Cluster ID: {cluster_data_series["Cluster"]}', classes)
+        self.logger.debug(f'Cluster ID: {cluster_data_series["Cluster"]}', classes)
         #
         classes_df = pd.DataFrame(classes, columns=['class'])
         classes_df = classes_df.reset_index()
         #
         # feats_important = pd.read_csv(cluster_data_file_path)['Feature List'].to_list()[cluster_id][2:-2].split("', '")
         feats_important = cluster_data_series['Feature List']
-        # print(f'Cluster ID: {cluster_data_series["Cluster"]}', feats_important)
+        self.logger.debug(f'Cluster ID: {cluster_data_series["Cluster"]}', feats_important)
         self.feats_important = feats_important
         self.classes = classes
         self.classes_df = classes_df
