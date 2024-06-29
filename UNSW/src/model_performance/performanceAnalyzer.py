@@ -8,7 +8,7 @@ import pandas as pd
 import os
 import re
 
-flow_pkts_data_file_path = "/home/nds-admin/UNSW_PCAPS/hyb_code/16-10-05-flow-counts.csv"
+flow_pkts_data_file_path = "/home/ddeandres/UNSW_PCAPS/hyb_code/16-10-05-flow-counts.csv"
 
 # list of all extracted features
 feats_all = ["ip.len", 'ip.hdr_len', "ip.ttl", "tcp.flags.syn", "tcp.flags.ack", "tcp.flags.push", "tcp.flags.fin",
@@ -105,13 +105,19 @@ def select_best_models_per_cluster(cluster_info, score_per_class_df, folder_name
     pattern = re.compile('[0-9]+')
 
     for file in os.listdir(directory):
-        if 'solution.csv' in file:
-            continue # this is the solution file
         file_string = file.decode("utf-8")
-        path = os.path.join(folder_name, file_string)
+        path = os.path.join(directory, file)
         if os.path.isdir(path):
             # skip directories
-            continue # this is a subdirectory for other stuff
+            continue
+        base = os.path.basename(file_string)
+        stem = os.path.splitext(base)[0]
+        extension = os.path.splitext(base)[1]
+        if 'csv' not in extension:
+            continue
+        if 'solution.csv' in file_string:
+            continue # this is the solution file
+
         grep_data = pattern.findall(file_string)
         n_point = int(grep_data[0])
         total_n_classes = int(grep_data[1])

@@ -1,5 +1,5 @@
 import logging
-root_path = '/home/ddeandres/'
+root_path = '/home/ddeandres'
 
 
 logging.basicConfig(
@@ -12,3 +12,4 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger('UNSW')
+logger.info(f'Logging to {root_path}/experiment.log')

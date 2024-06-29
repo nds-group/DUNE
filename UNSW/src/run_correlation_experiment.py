@@ -77,9 +77,9 @@ def run_experiment(folder, cores):
                 # for result in pool.imap_unordered(run_analysis, input_data):
                 #     pass
 
-        score = calculate_F1_score(file_string, str(results_folder))
-        logger.info(f"F1 score: {score}")
-        logger.info(f"Finished experiment: {exp_id}")
+            score = calculate_F1_score(file_string, str(results_folder))
+            logger.info(f"F1 score: {score}")
+            logger.info(f"Finished experiment: {exp_id}")
     del pool
 
 

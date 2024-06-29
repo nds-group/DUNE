@@ -19,6 +19,9 @@ test_data_dir_path = '/home/ddeandres/UNSW_PCAPS/test/csv_files'
 flow_counts_file_path = '/home/ddeandres/UNSW_PCAPS/hyb_code/16-10-05-flow-counts.csv'
 cluster_data_file_path = '/home/ddeandres/distributed_in_band/UNSW/cluster_info/UNSW_SPP_solution.csv'
 results_dir_path = '/home/ddeandres/distributed_in_band/UNSW/cluster_model_analysis_results/test'
+# cluster_data_file_path = '/home/ddeandres/distributed_in_band/UNSW/cluster_model_analysis_results/correlation_analysis/20CL_6_SPP_solution.csv'
+# results_dir_path = '/home/ddeandres/distributed_in_band/UNSW/cluster_model_analysis_results/correlation_analysis/20CL_6_SPP_solution'
+
 
 force_rewrite = False
 
