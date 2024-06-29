@@ -4,6 +4,9 @@ from multiprocessing import Pool
 from ast import literal_eval
 from itertools import product
 import pandas as pd
+import logging
+
+logger = logging.getLogger('UNSW')
 
 classes_filter = ['Amazon Echo', 'Android Phone', 'Belkin Wemo switch', 'Belkin wemo motion sensor', 'Dropcam',
                   'HP Printer', 'Insteon Camera', 'Laptop', 'Light Bulbs LiFX Smart Bulb', 'MacBook',
@@ -11,9 +14,9 @@ classes_filter = ['Amazon Echo', 'Android Phone', 'Belkin Wemo switch', 'Belkin 
                   'Samsung Galaxy Tab', 'Samsung SmartCam', 'Smart Things', 'TP-Link Day Night Cloud camera',
                   'TP-Link Smart plug', 'Triby Speaker']
 
-train_data_dir_path = '/home/nds-admin/UNSW_PCAPS/train/train_data_hybrid'
-test_data_dir_path = '/home/nds-admin/UNSW_PCAPS/test/csv_files'
-flow_counts_file_path = '/home/nds-admin/UNSW_PCAPS/hyb_code/16-10-05-flow-counts.csv'
+train_data_dir_path = '/home/ddeandres/UNSW_PCAPS/train/train_data_hybrid'
+test_data_dir_path = '/home/ddeandres/UNSW_PCAPS/test/csv_files'
+flow_counts_file_path = '/home/ddeandres/UNSW_PCAPS/hyb_code/16-10-05-flow-counts.csv'
 cluster_data_file_path = '/home/ddeandres/distributed_in_band/UNSW/cluster_info/UNSW_SPP_solution.csv'
 results_dir_path = '/home/ddeandres/distributed_in_band/UNSW/cluster_model_analysis_results/test'
 
@@ -35,7 +38,7 @@ def run_analysis(input_data):
     print(f"Starting analysis of: Cluster id: {cluster_id}, npoint {n_point}")
     f_name = f"{results_dir_path}/unsw_models_{n_point}pkts_PF_WB_20CL_Cluster{cluster_id}.csv"
     model_analyzer = ModelAnalyzer(train_data_dir_path, test_data_dir_path, flow_counts_file_path,
-                                   classes_filter, cluster_data_file_path)
+                                   classes_filter, cluster_data_file_path, logger)
     model_analyzer.load_cluster_data(cluster_info.loc[cluster_id])
     model_analyzer.analyze_model_n_packets(n_point, f_name, force_rewrite)
     print(f"Finished analyzing n={n_point}, Cluster={cluster_id}. Results at: {results_dir_path}")

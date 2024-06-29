@@ -15,9 +15,9 @@ classes_filter = ['Amazon Echo', 'Android Phone', 'Belkin Wemo switch', 'Belkin 
                   'Samsung Galaxy Tab', 'Samsung SmartCam', 'Smart Things', 'TP-Link Day Night Cloud camera',
                   'TP-Link Smart plug', 'Triby Speaker']
 
-train_data_dir_path = '/home/nds-admin/UNSW_PCAPS/train/train_data_hybrid'
-test_data_dir_path = '/home/nds-admin/UNSW_PCAPS/test/csv_files'
-flow_counts_file_path = '/home/nds-admin/UNSW_PCAPS/hyb_code/16-10-05-flow-counts.csv'
+train_data_dir_path = '/home/ddeandres/UNSW_PCAPS/train/train_data_hybrid'
+test_data_dir_path = '/home/ddeandres/UNSW_PCAPS/test/csv_files'
+flow_counts_file_path = '/home/ddeandres/UNSW_PCAPS/hyb_code/16-10-05-flow-counts.csv'
 cluster_data_file_path = '/home/ddeandres/distributed_in_band/UNSW/cluster_info/UNSW_SPP_solution.csv'
 results_dir_path = '/home/ddeandres/distributed_in_band/UNSW/cluster_model_analysis_results/correlation_analysis'
 
@@ -33,58 +33,60 @@ cluster_info = pd.read_csv(cluster_data_file_path,
                            converters=dict.fromkeys(['Class List', 'Feature List'], literal_converter))
 
 
-def run_analysis(input_data):
-    n_point = input_data[0]
-    cluster_id = input_data[1]
-    cluster_data_file_path  = input_data[2]
+def run_analysis(n_point, cluster_id, cluster_data_file_path):
     base = os.path.basename(cluster_data_file_path)
     stem = os.path.splitext(base)[0]
     exp_id = stem.split('_')[1]
     logger = logging.getLogger(f'UNSW.{exp_id}.analyzer_{cluster_id}_{n_point}')
     logger.info(f"Starting analysis of: Cluster id: {cluster_id}, npoint {n_point}")
-    f_name = f"{results_dir_path}/unsw_models_{n_point}pkts_PF_WB_20CL_Cluster{cluster_id}.csv"
+    f_name = f"{results_dir_path}/{stem}/unsw_models_{n_point}pkts_PF_WB_20CL_Cluster{cluster_id}.csv"
     model_analyzer = ModelAnalyzer(train_data_dir_path, test_data_dir_path, flow_counts_file_path,
                                    classes_filter, cluster_data_file_path, logger)
     model_analyzer.load_cluster_data(cluster_info.loc[cluster_id])
     model_analyzer.analyze_model_n_packets(n_point, f_name, force_rewrite)
     logger.info(f"Finished analyzing n={n_point}, Cluster={cluster_id}. Results at: {results_dir_path}")
-    return input_data
 
 
 def run_experiment(folder, cores):
     directory = os.fsencode(folder)
-    for file in os.listdir(directory):
-        file_string = file.decode("utf-8")
-        base = os.path.basename(file_string)
-        stem = os.path.splitext(base)[0]
-        exp_id = stem.split('_')[1]
-        logger = logging.getLogger(f'UNSW.{exp_id}')
-        logger.info(f"Starting experiment: {exp_id}")
-        path = os.path.join(folder, file_string)
-        if os.path.isdir(path):
-            # skip directories
-            continue
-        # Create folder for saving results
-        results_folder = os.path.join(folder, stem)
-        if not os.path.exists(results_folder):
-            os.makedirs(results_folder)
+    logging.getLogger(f'UNSW').info(f'Will use {consumed_cores} cores. Starting pool...')
+    with Pool(processes=cores) as pool:
+        for file in os.listdir(directory):
+            file_string = file.decode("utf-8")
+            path = os.path.join(folder, file_string)
+            if os.path.isdir(path):
+                # skip directories
+                continue
+            base = os.path.basename(file_string)
+            stem = os.path.splitext(base)[0]
+            extension = os.path.splitext(base)[1]
+            if 'csv' not in extension:
+                continue
+            exp_id = stem.split('_')[1]
+            logger = logging.getLogger(f'UNSW.{exp_id}')
+            logger.info(f"Starting experiment: {exp_id}")
 
-        logger.info(f'Will use {consumed_cores} cores. Starting pool...')
-        input_data = list(product(inference_points_list, cluster_id_list, [str(path)]))
-        with Pool(processes=cores) as pool:
-            for result in pool.imap_unordered(run_analysis, input_data):
-                pass
+            # Create folder for saving results
+            results_folder = os.path.join(folder, stem)
+            if not os.path.exists(results_folder):
+                os.makedirs(results_folder)
+
+            input_data = list(product(inference_points_list, cluster_id_list, [str(path)]))
+
+            pool.starmap(run_analysis, input_data)
+                # for result in pool.imap_unordered(run_analysis, input_data):
+                #     pass
 
         score = calculate_F1_score(file_string, str(results_folder))
         logger.info(f"F1 score: {score}")
         logger.info(f"Finished experiment: {exp_id}")
-        break
+    del pool
 
 
 
 inference_points_list = list(range(2, 5))
 cluster_id_list = cluster_info['Cluster'].to_list()
-consumed_cores = min([32, len(inference_points_list)*len(cluster_id_list)])
+consumed_cores = min([24, len(inference_points_list)*len(cluster_id_list)])
 logger.info("Starting program.")
 run_experiment(results_dir_path, consumed_cores)
 logger.info("Finished program.")

@@ -1,5 +1,5 @@
 import logging
-root_path = '/home/ddeandres/distributed_in_band/UNSW/cluster_model_analysis_results/correlation_analysis'
+root_path = '/home/ddeandres/'
 
 
 logging.basicConfig(
