@@ -98,10 +98,13 @@ class ModelAnalyzer:
             self.logger.info(f"Deleting existing temp file: {tmp_filename}")
             os.remove(tmp_filename)
 
+        original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
+
         def signal_handler(sig, frame):
             self.logger.info('You pressed Ctrl+C! Deleting temporary files...')
             os.remove(tmp_filename)
-            sys.exit(0)
+            raise KeyboardInterrupt()
+            # sys.exit(130)
 
         with open(tmp_filename, "w") as res_file:
             self.logger.info(f'Writing grid search results to: {tmp_filename}')
@@ -152,6 +155,7 @@ class ModelAnalyzer:
 
         shutil.move(tmp_filename, filename)
         logging.getLogger("UNSW").info(f'Finished grid search. Saved results to: {filename}')
+        signal.signal(signal.SIGINT, original_sigint_handler)
         return []
 
     #

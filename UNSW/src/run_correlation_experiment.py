@@ -84,9 +84,18 @@ def run_experiment(folder):
         logging.getLogger(f'UNSW').info(f'Will use {consumed_cores} cores. Starting pool...')
         input_data = list(product(inference_points_list, cluster_id_list, [str(solution_file_path)], [cluster_info]))
         with mp.get_context('spawn').Pool(processes=consumed_cores) as pool:
-            for result in pool.imap_unordered(run_analysis, input_data):
-                pass  # or do something with result, if pool_tasks returns a value
-            # pool.starmap(run_analysis, input_data)
+            try:
+                # issue tasks to the process pool
+                pool.imap_unordered(run_analysis, input_data)
+                # for result in pool.imap_unordered(run_analysis, input_data):
+                #     pass  # or do something with result, if pool_tasks returns a value
+                # shutdown the process pool
+                pool.close()
+            except KeyboardInterrupt:
+                logger.error("Caught KeyboardInterrupt, terminating workers")
+                pool.terminate()
+            # wait for all issued task to complete
+            pool.join()
             try:
                 score = calculate_F1_score(f'{folder}/{file_string}', str(results_folder))
                 logger.info(f"F1 score: {score}")

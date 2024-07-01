@@ -20,7 +20,7 @@ flow_counts_file_path = '/home/ddeandres/UNSW_PCAPS/hyb_code/16-10-05-flow-count
 # cluster_data_file_path = '/home/ddeandres/distributed_in_band/UNSW/cluster_info/UNSW_SPP_solution.csv'
 # results_dir_path = '/home/ddeandres/distributed_in_band/UNSW/cluster_model_analysis_results/test'
 
-experiment_nr = '20CL_1_SPP_solution'
+experiment_nr = '20CL_6_SPP_solution'
 cluster_data_file_path = f'/home/ddeandres/distributed_in_band/UNSW/cluster_model_analysis_results/correlation_analysis/{experiment_nr}.csv'
 results_dir_path = f'/home/ddeandres/distributed_in_band/UNSW/cluster_model_analysis_results/correlation_analysis/{experiment_nr}'
 
@@ -53,18 +53,38 @@ def __run_analysis(n_point, cluster_id):
 
 
 def main():
-    inference_points_list = list(range(2, 5))
+    # inference_points_list = list(range(2, 5))
+    inference_points_list = [3]
     cluster_id_list = cluster_info['Cluster'].to_list()
     # cluster_id_list = [0, 3, 6]
-    consumed_cores = min([32, len(inference_points_list) * len(cluster_id_list)])
+    consumed_cores = min([24, len(inference_points_list) * len(cluster_id_list)])
     print(f'Will use {consumed_cores} cores. Starting pool...')
 
     with mp.get_context('spawn').Pool(processes=consumed_cores) as pool:
-        for result in pool.imap_unordered(run_analysis, list(product(inference_points_list, cluster_id_list))):
+        input_data = list(product(inference_points_list, cluster_id_list))
+        for result in pool.imap_unordered(run_analysis, input_data):
             pass  # or do something with result, if pool_tasks returns a value
         # pool.starmap(__run_analysis, list(product(inference_points_list, cluster_id_list)), chunksize=1)
 
-    print(calculate_F1_score(cluster_data_file_path, results_dir_path))
+    with mp.get_context('spawn').Pool(processes=consumed_cores) as pool:
+        try:
+            # issue tasks to the process pool
+            pool.imap_unordered(run_analysis, input_data)
+            # for result in pool.imap_unordered(run_analysis, input_data):
+            #     pass  # or do something with result, if pool_tasks returns a value
+            # shutdown the process pool
+            pool.close()
+        except KeyboardInterrupt:
+            logger.error("Caught KeyboardInterrupt, terminating workers")
+            pool.terminate()
+        # wait for all issued task to complete
+        pool.join()
+        try:
+            score = calculate_F1_score(cluster_data_file_path, results_dir_path)
+            print(f"F1 score: {score}")
+        except ValueError as e:
+            logger.error(f"F1 score could not be calculated. The following error was raised: {e}")
+    del pool
 
 if __name__ == '__main__':
     raise SystemExit(main())
