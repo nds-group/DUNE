@@ -9,6 +9,10 @@ from ast import literal_eval
 from itertools import product
 import pandas as pd
 
+max_usable_cores = 24
+# inference_points_list = list(range(2, 5))
+inference_points_list = [3]
+
 classes_filter = ['Amazon Echo', 'Android Phone', 'Belkin Wemo switch', 'Belkin wemo motion sensor', 'Dropcam',
                   'HP Printer', 'Insteon Camera', 'Laptop', 'Light Bulbs LiFX Smart Bulb', 'MacBook',
                   'NEST Protect smoke alarm', 'Netatmo Welcome', 'Netatmo weather station', 'PIX-STAR Photo-frame',
@@ -28,7 +32,15 @@ def literal_converter(val):
     return val if val == '' else literal_eval(val)
 
 
-def run_analysis(n_point, cluster_id, cluster_data_file_path, cluster_info):
+def run_analysis(input_data):
+    n_point = input_data[0]
+    cluster_id = input_data[1]
+    cluster_data_file_path = input_data[2]
+    cluster_info = input_data[3]
+    return __run_analysis(n_point, cluster_id, cluster_data_file_path, cluster_info)
+
+
+def __run_analysis(n_point, cluster_id, cluster_data_file_path, cluster_info):
     base = os.path.basename(cluster_data_file_path)
     stem = os.path.splitext(base)[0]
     exp_id = stem.split('_')[1]
@@ -68,11 +80,13 @@ def run_experiment(folder):
         cluster_info = pd.read_csv(solution_file_path,
                                    converters=dict.fromkeys(['Class List', 'Feature List'], literal_converter))
         cluster_id_list = cluster_info['Cluster'].to_list()
-        consumed_cores = min([24, len(inference_points_list) * len(cluster_id_list)])
+        consumed_cores = min([max_usable_cores, len(inference_points_list) * len(cluster_id_list)])
         logging.getLogger(f'UNSW').info(f'Will use {consumed_cores} cores. Starting pool...')
         input_data = list(product(inference_points_list, cluster_id_list, [str(solution_file_path)], [cluster_info]))
         with mp.get_context('spawn').Pool(processes=consumed_cores) as pool:
-            pool.starmap(run_analysis, input_data)
+            for result in pool.imap_unordered(run_analysis, input_data):
+                pass  # or do something with result, if pool_tasks returns a value
+            # pool.starmap(run_analysis, input_data)
             try:
                 score = calculate_F1_score(f'{folder}/{file_string}', str(results_folder))
                 logger.info(f"F1 score: {score}")
@@ -81,9 +95,6 @@ def run_experiment(folder):
         del pool
         logger.info(f"Finished experiment: {exp_id}")
 
-
-# inference_points_list = list(range(2, 5))
-inference_points_list = [3]
 
 def main():
     logger.info("Starting program.")

@@ -1,3 +1,9 @@
+import logging
+import os
+import signal
+import shutil
+import sys
+
 import pandas as pd
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
@@ -85,12 +91,29 @@ class ModelAnalyzer:
                        y_multiply, test_flow_pkt_cnt, test_flow_IDs, max_leaf, test_labels, test_indices, filename,
                        weight_of_samples):
         # open file to save ouput of analysis
-        with open(filename, "w") as res_file:
+        root = os.path.splitext(filename)[0]
+        extension = os.path.splitext(filename)[1]
+        tmp_filename = f'{root}_tmp{extension}'
+        if os.path.isfile(tmp_filename):
+            self.logger.info(f"Deleting existing temp file: {tmp_filename}")
+            os.remove(tmp_filename)
+
+        def signal_handler(sig, frame):
+            self.logger.info('You pressed Ctrl+C! Deleting temporary files...')
+            os.remove(tmp_filename)
+            sys.exit(0)
+
+        with open(tmp_filename, "w") as res_file:
+            self.logger.info(f'Writing grid search results to: {tmp_filename}')
             print(
                 'depth;tree;no_feats;N_Leaves;Macro_f1_FL;Weighted_f1_FL;Micro_f1_FL;feats;pkt_macro_f1'
                 ';pkt_weighted_f1;flw_macro_f1;flw_weighted_f1;F1_macro;F1_weighted;num_samples;Macro_F1_PL'
                 ';Weighted_F1_PL;Micro_F1_PL;cl_report_FL;cl_report_PL',
                 file=res_file)
+
+            # register signal handler to delete file if code is not completed
+            signal.signal(signal.SIGINT, signal_handler)
+
             # FOR EACH (depth, n_tree, feat)
             for n_tree in n_trees:
                 # for depth in depths:
@@ -126,6 +149,9 @@ class ModelAnalyzer:
                             weight_f1) + ';' + str(num_samples) + ';' + str(macro_f1_PL) + ';' + str(
                             weighted_f1_PL) + ';' + str(micro_f1_PL) + ';' + str(cl_report_FL) + ';' + str(
                             cl_report_PL), file=res_file)
+
+        shutil.move(tmp_filename, filename)
+        logging.getLogger("UNSW").info(f'Finished grid search. Saved results to: {filename}')
         return []
 
     #
