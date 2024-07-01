@@ -4,7 +4,7 @@ import os
 from model_performance.performanceAnalyzer import calculate_F1_score
 from model_analysis.modelAnalyzer import ModelAnalyzer
 from setup_logger import logger
-from multiprocessing import Pool
+import multiprocessing as mp
 from ast import literal_eval
 from itertools import product
 import pandas as pd
@@ -18,7 +18,6 @@ classes_filter = ['Amazon Echo', 'Android Phone', 'Belkin Wemo switch', 'Belkin 
 train_data_dir_path = '/home/ddeandres/UNSW_PCAPS/train/train_data_hybrid'
 test_data_dir_path = '/home/ddeandres/UNSW_PCAPS/test/csv_files'
 flow_counts_file_path = '/home/ddeandres/UNSW_PCAPS/hyb_code/16-10-05-flow-counts.csv'
-cluster_data_file_path = '/home/ddeandres/distributed_in_band/UNSW/cluster_info/UNSW_SPP_solution.csv'
 results_dir_path = '/home/ddeandres/distributed_in_band/UNSW/cluster_model_analysis_results/correlation_analysis'
 
 force_rewrite = False
@@ -29,11 +28,7 @@ def literal_converter(val):
     return val if val == '' else literal_eval(val)
 
 
-cluster_info = pd.read_csv(cluster_data_file_path,
-                           converters=dict.fromkeys(['Class List', 'Feature List'], literal_converter))
-
-
-def run_analysis(n_point, cluster_id, cluster_data_file_path):
+def run_analysis(n_point, cluster_id, cluster_data_file_path, cluster_info):
     base = os.path.basename(cluster_data_file_path)
     stem = os.path.splitext(base)[0]
     exp_id = stem.split('_')[1]
@@ -47,50 +42,54 @@ def run_analysis(n_point, cluster_id, cluster_data_file_path):
     logger.info(f"Finished analyzing n={n_point}, Cluster={cluster_id}. Results at: {results_dir_path}")
 
 
-def run_experiment(folder, cores):
+def run_experiment(folder):
     directory = os.fsencode(folder)
-    logging.getLogger(f'UNSW').info(f'Will use {consumed_cores} cores. Starting pool...')
-    with Pool(processes=cores) as pool:
-        for file in os.listdir(directory):
-            file_string = file.decode("utf-8")
-            path = os.path.join(folder, file_string)
-            if os.path.isdir(path):
-                # skip directories
-                continue
-            base = os.path.basename(file_string)
-            stem = os.path.splitext(base)[0]
-            extension = os.path.splitext(base)[1]
-            if 'csv' not in extension:
-                continue
-            exp_id = stem.split('_')[1]
-            logger = logging.getLogger(f'UNSW.{exp_id}')
-            logger.info(f"Starting experiment: {exp_id}")
 
-            # Create folder for saving results
-            results_folder = os.path.join(folder, stem)
-            if not os.path.exists(results_folder):
-                os.makedirs(results_folder)
+    for file in os.listdir(directory):
+        file_string = file.decode("utf-8")
+        solution_file_path = os.path.join(folder, file_string)
+        if os.path.isdir(solution_file_path):
+            # skip directories
+            continue
+        base = os.path.basename(file_string)
+        stem = os.path.splitext(base)[0]
+        extension = os.path.splitext(base)[1]
+        if 'csv' not in extension:
+            continue
+        exp_id = stem.split('_')[1]
+        logger = logging.getLogger(f'UNSW.{exp_id}')
+        logger.info(f"Starting experiment: {exp_id}")
 
-            input_data = list(product(inference_points_list, cluster_id_list, [str(path)]))
+        # Create folder for saving results
+        results_folder = os.path.join(folder, stem)
+        if not os.path.exists(results_folder):
+            os.makedirs(results_folder)
 
+        cluster_info = pd.read_csv(solution_file_path,
+                                   converters=dict.fromkeys(['Class List', 'Feature List'], literal_converter))
+        cluster_id_list = cluster_info['Cluster'].to_list()
+        consumed_cores = min([24, len(inference_points_list) * len(cluster_id_list)])
+        logging.getLogger(f'UNSW').info(f'Will use {consumed_cores} cores. Starting pool...')
+        input_data = list(product(inference_points_list, cluster_id_list, [str(solution_file_path)], [cluster_info]))
+        with mp.get_context('spawn').Pool(processes=consumed_cores) as pool:
             pool.starmap(run_analysis, input_data)
-                # for result in pool.imap_unordered(run_analysis, input_data):
-                #     pass
-
-            score = calculate_F1_score(file_string, str(results_folder))
-            logger.info(f"F1 score: {score}")
-            logger.info(f"Finished experiment: {exp_id}")
-    del pool
-
-
-
-inference_points_list = list(range(2, 5))
-cluster_id_list = cluster_info['Cluster'].to_list()
-consumed_cores = min([24, len(inference_points_list)*len(cluster_id_list)])
-logger.info("Starting program.")
-run_experiment(results_dir_path, consumed_cores)
-logger.info("Finished program.")
+            try:
+                score = calculate_F1_score(f'{folder}/{file_string}', str(results_folder))
+                logger.info(f"F1 score: {score}")
+            except ValueError as e:
+                logger.error(f"F1 score could not be calculated. The following error was raised: {e}")
+        del pool
+        logger.info(f"Finished experiment: {exp_id}")
 
 
+# inference_points_list = list(range(2, 5))
+inference_points_list = [3]
+
+def main():
+    logger.info("Starting program.")
+    run_experiment(results_dir_path)
+    logger.info("Finished program.")
 
 
+if __name__ == '__main__':
+    raise SystemExit(main())

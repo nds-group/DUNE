@@ -1,6 +1,6 @@
 from model_performance.performanceAnalyzer import calculate_F1_score
 from model_analysis.modelAnalyzer import ModelAnalyzer
-from multiprocessing import Pool
+import multiprocessing as mp
 from ast import literal_eval
 from itertools import product
 import pandas as pd
@@ -17,10 +17,12 @@ classes_filter = ['Amazon Echo', 'Android Phone', 'Belkin Wemo switch', 'Belkin 
 train_data_dir_path = '/home/ddeandres/UNSW_PCAPS/train/train_data_hybrid'
 test_data_dir_path = '/home/ddeandres/UNSW_PCAPS/test/csv_files'
 flow_counts_file_path = '/home/ddeandres/UNSW_PCAPS/hyb_code/16-10-05-flow-counts.csv'
-cluster_data_file_path = '/home/ddeandres/distributed_in_band/UNSW/cluster_info/UNSW_SPP_solution.csv'
-results_dir_path = '/home/ddeandres/distributed_in_band/UNSW/cluster_model_analysis_results/test'
-# cluster_data_file_path = '/home/ddeandres/distributed_in_band/UNSW/cluster_model_analysis_results/correlation_analysis/20CL_6_SPP_solution.csv'
-# results_dir_path = '/home/ddeandres/distributed_in_band/UNSW/cluster_model_analysis_results/correlation_analysis/20CL_6_SPP_solution'
+# cluster_data_file_path = '/home/ddeandres/distributed_in_band/UNSW/cluster_info/UNSW_SPP_solution.csv'
+# results_dir_path = '/home/ddeandres/distributed_in_band/UNSW/cluster_model_analysis_results/test'
+
+experiment_nr = '20CL_1_SPP_solution'
+cluster_data_file_path = f'/home/ddeandres/distributed_in_band/UNSW/cluster_model_analysis_results/correlation_analysis/{experiment_nr}.csv'
+results_dir_path = f'/home/ddeandres/distributed_in_band/UNSW/cluster_model_analysis_results/correlation_analysis/{experiment_nr}'
 
 
 force_rewrite = False
@@ -38,6 +40,9 @@ cluster_info = pd.read_csv(cluster_data_file_path,
 def run_analysis(input_data):
     n_point = input_data[0]
     cluster_id = input_data[1]
+    return __run_analysis(n_point, cluster_id)
+
+def __run_analysis(n_point, cluster_id):
     print(f"Starting analysis of: Cluster id: {cluster_id}, npoint {n_point}")
     f_name = f"{results_dir_path}/unsw_models_{n_point}pkts_PF_WB_20CL_Cluster{cluster_id}.csv"
     model_analyzer = ModelAnalyzer(train_data_dir_path, test_data_dir_path, flow_counts_file_path,
@@ -47,15 +52,19 @@ def run_analysis(input_data):
     print(f"Finished analyzing n={n_point}, Cluster={cluster_id}. Results at: {results_dir_path}")
 
 
-inference_points_list = list(range(2, 5))
-cluster_id_list = cluster_info['Cluster'].to_list()
-consumed_cores = min([32, len(inference_points_list)*len(cluster_id_list)])
-print(f'Will use {consumed_cores} cores. Starting pool...')
+def main():
+    inference_points_list = list(range(2, 5))
+    cluster_id_list = cluster_info['Cluster'].to_list()
+    # cluster_id_list = [0, 3, 6]
+    consumed_cores = min([32, len(inference_points_list) * len(cluster_id_list)])
+    print(f'Will use {consumed_cores} cores. Starting pool...')
 
-with Pool(processes=consumed_cores) as pool:
-    for result in pool.imap_unordered(run_analysis, list(product(inference_points_list, cluster_id_list))):
-        pass  # or do something with result, if pool_tasks returns a value
-#     # pool.starmap(run_analysis, zip(list(range(2, 5)), list(range(3))), chunksize=1)
+    with mp.get_context('spawn').Pool(processes=consumed_cores) as pool:
+        for result in pool.imap_unordered(run_analysis, list(product(inference_points_list, cluster_id_list))):
+            pass  # or do something with result, if pool_tasks returns a value
+        # pool.starmap(__run_analysis, list(product(inference_points_list, cluster_id_list)), chunksize=1)
 
+    print(calculate_F1_score(cluster_data_file_path, results_dir_path))
 
-print(calculate_F1_score(cluster_data_file_path, results_dir_path))
+if __name__ == '__main__':
+    raise SystemExit(main())
