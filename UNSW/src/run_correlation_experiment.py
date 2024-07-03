@@ -9,6 +9,8 @@ from ast import literal_eval
 from itertools import product
 import pandas as pd
 
+timeout_join = 120 * 3600
+
 max_usable_cores = 24
 # inference_points_list = list(range(2, 5))
 inference_points_list = [3]
@@ -95,7 +97,7 @@ def run_experiment(folder):
                 logger.error("Caught KeyboardInterrupt, terminating workers")
                 pool.terminate()
             # wait for all issued task to complete
-            pool.join(90)
+            pool.join(timeout_join)
             try:
                 score = calculate_F1_score(f'{folder}/{file_string}', str(results_folder))
                 logger.info(f"F1 score: {score}")
