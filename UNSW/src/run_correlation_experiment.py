@@ -1,6 +1,7 @@
 import logging
 import os
 
+
 from model_performance.performanceAnalyzer import calculate_F1_score
 from model_analysis.modelAnalyzer import ModelAnalyzer
 from setup_logger import logger
@@ -11,7 +12,7 @@ import pandas as pd
 
 timeout_join = 120 * 3600
 
-max_usable_cores = 24
+max_usable_cores = 8
 # inference_points_list = list(range(2, 5))
 inference_points_list = [3]
 
@@ -24,7 +25,7 @@ classes_filter = ['Amazon Echo', 'Android Phone', 'Belkin Wemo switch', 'Belkin 
 train_data_dir_path = '/home/ddeandres/UNSW_PCAPS/train/train_data_hybrid'
 test_data_dir_path = '/home/ddeandres/UNSW_PCAPS/test/csv_files'
 flow_counts_file_path = '/home/ddeandres/UNSW_PCAPS/hyb_code/16-10-05-flow-counts.csv'
-results_dir_path = '/home/ddeandres/distributed_in_band/UNSW/cluster_model_analysis_results/correlation_analysis'
+results_dir_path = '/home/ddeandres/distributed_in_band/UNSW/cluster_model_analysis_results/correlation_analysis_v2'
 
 force_rewrite = False
 
@@ -45,7 +46,7 @@ def run_analysis(input_data):
 def __run_analysis(n_point, cluster_id, cluster_data_file_path, cluster_info):
     base = os.path.basename(cluster_data_file_path)
     stem = os.path.splitext(base)[0]
-    exp_id = stem.split('_')[1]
+    exp_id = int(stem.split('_')[1])
     logger = logging.getLogger(f'UNSW.{exp_id}.analyzer_{cluster_id}_{n_point}')
     logger.info(f"Starting analysis of: Cluster id: {cluster_id}, npoint {n_point}")
     f_name = f"{results_dir_path}/{stem}/unsw_models_{n_point}pkts_PF_WB_20CL_Cluster{cluster_id}.csv"
@@ -70,7 +71,9 @@ def run_experiment(folder):
         extension = os.path.splitext(base)[1]
         if 'csv' not in extension:
             continue
-        exp_id = stem.split('_')[1]
+        exp_id = int(stem.split('_')[1])
+        if exp_id not in range(41, 61):
+            continue
         logger = logging.getLogger(f'UNSW.{exp_id}')
         logger.info(f"Starting experiment: {exp_id}")
 
@@ -85,10 +88,10 @@ def run_experiment(folder):
         consumed_cores = min([max_usable_cores, len(inference_points_list) * len(cluster_id_list)])
         logging.getLogger(f'UNSW').info(f'Will use {consumed_cores} cores. Starting pool...')
         input_data = list(product(inference_points_list, cluster_id_list, [str(solution_file_path)], [cluster_info]))
-        with mp.get_context('spawn').Pool(processes=consumed_cores) as pool:
+        with mp.get_context('spawn').Pool(processes=consumed_cores, maxtasksperchild=1) as pool:
             try:
                 # issue tasks to the process pool
-                pool.imap_unordered(run_analysis, input_data)
+                pool.imap_unordered(run_analysis, input_data, chunksize=2)
                 # for result in pool.imap_unordered(run_analysis, input_data):
                 #     pass  # or do something with result, if pool_tasks returns a value
                 # shutdown the process pool
@@ -97,7 +100,7 @@ def run_experiment(folder):
                 logger.error("Caught KeyboardInterrupt, terminating workers")
                 pool.terminate()
             # wait for all issued task to complete
-            pool.join(timeout_join)
+            pool.join()
             try:
                 score = calculate_F1_score(f'{folder}/{file_string}', str(results_folder))
                 logger.info(f"F1 score: {score}")
