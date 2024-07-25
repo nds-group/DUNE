@@ -358,6 +358,9 @@ class TONModelAnalyzer(ModelAnalyzer):
         train_data = train_data[train_data['Label'].isin(self.classes)]
         test_data = test_data[test_data['Label'].isin(self.classes)]
 
+        train_data['Label_NEW'] = np.where((train_data['Label'].isin(self.classes)), train_data['Label'], 'Other')
+        test_data['Label_NEW'] = np.where((test_data['Label'].isin(self.classes)), test_data['Label'], 'Other')
+
         train_data['sample_nature'] = train_data.apply(assign_sample_nature, axis=1)
         test_data['sample_nature'] = test_data.apply(assign_sample_nature, axis=1)
 
