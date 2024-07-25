@@ -208,14 +208,14 @@ class ModelAnalyzer(ABC):
         # classes.append('Other')
         classes = list(set(cluster_data_series['Class List']))
         classes.append('Other')
-        self.logger.debug(f'Cluster ID: {cluster_data_series["Cluster"]}', classes)
+        # self.logger.debug(f'Cluster ID: {list(cluster_data_series["Cluster"])}', classes)
         #
         classes_df = pd.DataFrame(classes, columns=['class'])
         classes_df = classes_df.reset_index()
         #
         # feats_important = pd.read_csv(cluster_data_file_path)['Feature List'].to_list()[cluster_id][2:-2].split("', '")
         feature_list = cluster_data_series['Feature List']
-        self.logger.debug(f'Cluster ID: {cluster_data_series["Cluster"]}', feature_list)
+        # self.logger.debug(f'Cluster ID: {cluster_data_series["Cluster"]}', feature_list)
         self.feature_list = feature_list
         self.classes = classes
         self.classes_df = classes_df
@@ -312,8 +312,7 @@ class TONModelAnalyzer(ModelAnalyzer):
 
     def get_test_labels(self, IoT_Test):
         array_of_indices = []
-        # unique_labels = IoT_Test["Label_NEW"].unique()
-        unique_labels = IoT_Test["Label"].unique()
+        unique_labels = IoT_Test["Label_NEW"].unique()
         for lab in unique_labels:
             index = self.classes_df[self.classes_df['class'] == lab].index.values[0]
             array_of_indices.append(index)
@@ -321,8 +320,7 @@ class TONModelAnalyzer(ModelAnalyzer):
 
     def get_x_y_flow(self, Dataset, feats):
         X = Dataset[feats]
-        # y = Dataset['Label_NEW'].replace(classes, range(len(classes)))
-        y = Dataset['Label'].replace(self.classes, range(len(self.classes)))
+        y = Dataset['Label_NEW'].replace(self.classes, range(len(self.classes)))
         sample_nature = Dataset['sample_nature']
         return X, y, sample_nature
 
@@ -355,11 +353,13 @@ class TONModelAnalyzer(ModelAnalyzer):
         train_data = train_data.dropna(subset=['srcport', 'dstport'])
         test_data = test_data.dropna(subset=['srcport', 'dstport'])
 
-        train_data = train_data[train_data['Label'].isin(self.classes)]
-        test_data = test_data[test_data['Label'].isin(self.classes)]
+        train_data = train_data[train_data['Label'].isin(classes_filter)]
+        test_data = test_data[test_data['Label'].isin(classes_filter)]
 
         train_data['Label_NEW'] = np.where((train_data['Label'].isin(self.classes)), train_data['Label'], 'Other')
         test_data['Label_NEW'] = np.where((test_data['Label'].isin(self.classes)), test_data['Label'], 'Other')
+        self.logger.debug(f"Train data count: {train_data['Label_NEW'].value_counts()}")
+        self.logger.debug(f"Test data count: {test_data['Label_NEW'].value_counts()}")
 
         train_data['sample_nature'] = train_data.apply(assign_sample_nature, axis=1)
         test_data['sample_nature'] = test_data.apply(assign_sample_nature, axis=1)

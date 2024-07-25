@@ -63,10 +63,14 @@ def main():
 
 
 if __name__ == '__main__':
+    logging.basicConfig()
     config = configparser.ConfigParser()
     config.read('params.ini')
     use_case = config['DEFAULT']['use_case']
+    log_level = config['DEFAULT']['log_level']
+    level = logging.getLevelName(log_level)
     logger = logging.getLogger(use_case)
+    logger.setLevel(level)
     force_rewrite = bool(config['DEFAULT']['force_rewrite'])
     grid_search = bool(config['DEFAULT']['grid_search'])
     max_usable_cores = int(config['DEFAULT']['max_usable_cores'])
