@@ -1,0 +1,12 @@
+[DEFAULT]
+n_classes = 20
+n_features = 15
+weights_file = importance_weights.csv
+f1_file = score_per_class.csv
+unwanted_classes = ['Blipcare Blood Pressure meter', 'IPhone']
+
+[TEST]
+test_classes_list=['Amazon Echo', 'Android Phone', 'Belkin Wemo switch', 'Belkin wemo motion sensor', 'Dropcam','HP Printer', 'Insteon Camera', 'Laptop', 'Light Bulbs LiFX Smart Bulb', 'MacBook','NEST Protect smoke alarm', 'Netatmo Welcome', 'Netatmo weather station','PIX-STAR Photo-frame','Samsung Galaxy Tab', 'Samsung SmartCam', 'Smart Things', 'TP-Link Day Night Cloud camera','TP-Link Smart plug', 'Triby Speaker']
+
+[CORRELATION ANALYSIS]
+experiment_folder_path=/home/ddeandres/distributed_in_band/UNSW/cluster_model_analysis_results/correlation_analysis_v2
