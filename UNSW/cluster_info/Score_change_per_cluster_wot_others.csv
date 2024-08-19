@@ -1,9 +1,0 @@
-,Cluster,Class List,Average_F1_With_Others,Average_F1_Without_Others,Avg_F1_score_change,Support,Number_of_classes
-1,0,"['PIX-STAR Photo-frame', 'Android Phone', 'TP-Link Smart plug', 'TP-Link Day Night Cloud camera']",58.65673580463475,88.60392394096053,39.875100825010726,2197,4
-2,1,"['Samsung SmartCam', 'Amazon Echo', 'Belkin wemo motion sensor', 'Laptop', 'Insteon Camera', 'iHome', 'Withings Smart scale', 'Withings Aura smart sleep sensor']",88.61076612408702,97.07082713620258,8.207932034531085,40789,8
-3,2,"['MacBook', 'HP Printer']",83.43516470908537,91.50064315166397,15.88300565328258,2067,2
-4,3,"['Light Bulbs LiFX Smart Bulb', 'Netatmo weather station', 'Smart Things']",99.4320990660876,99.69230023843761,0.44038618078823316,2349,3
-5,4,"['Netatmo Welcome', 'Belkin Wemo switch']",92.96614773881771,99.11550563936824,9.339194671799014,3848,2
-6,5,"['NEST Protect smoke alarm', 'Withings Smart Baby Monitor']",89.28533392371494,98.91884429695486,14.732261993596609,1795,2
-7,6,"['Samsung Galaxy Tab', 'Triby Speaker']",79.79109754276833,94.92562553628055,23.578011948594153,8110,2
-8,7,['Dropcam'],96.66637199686714,100.0,6.666847220292354,3,1

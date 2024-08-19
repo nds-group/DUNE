@@ -1,7 +1,0 @@
-,Cluster,Class List,Feature List,Depth,Tree,Feats
-0,0,"['dos', 'backdoor']","['srcport', 'Max Packet Length', 'Min Packet Length', 'tcp.window_size_value', 'ip.ttl', 'Packet Length Total', 'SYN Flag Count', 'dstport', 'ACK Flag Count', 'ip.len']",-1,-1,-1
-1,1,"['xss', 'ddos']","['ip.len', 'Max Packet Length', 'udp.length', 'Min Packet Length', 'Packet Length Total', 'tcp.window_size_value', 'dstport', 'SYN Flag Count']",-1,-1,-1
-2,2,['scanning'],"['dstport', 'ip.len', 'ip.ttl', 'tcp.hdr_len', 'tcp.window_size_value', 'Packet Length Total', 'Max Packet Length', 'udp.length']",-1,-1,-1
-3,3,"['injection', 'password']","['dstport', 'Packet Length Total', 'tcp.window_size_value', 'Max Packet Length', 'Min Packet Length', 'ip.len', 'udp.length']",-1,-1,-1
-4,4,"['mitm', 'ransomware']","['Max Packet Length', 'Packet Length Total', 'srcport', 'dstport', 'tcp.window_size_value', 'FIN Flag Count']",-1,-1,-1
-5,5,['normal'],"['ip.ttl', 'ip.len', 'udp.length', 'tcp.window_size_value', 'dstport']",-1,-1,-1

@@ -1,5 +1,0 @@
-,Cluster,Class List,Average_F1_With_Others,Number_of_classes,Other_Classes
-0,3,"['backdoor', 'dos', 'scanning']",57.662639099141856,3,[]
-1,1,"['injection', 'password']",73.52027494920014,2,"['backdoor', 'dos', 'scanning']"
-2,0,"['mitm', 'normal', 'xss']",64.37482449387296,3,"['backdoor', 'dos', 'scanning', 'injection', 'password']"
-3,2,"['ddos', 'ransomware']",69.37943797794702,2,"['backdoor', 'dos', 'scanning', 'injection', 'password', 'mitm', 'normal', 'xss']"

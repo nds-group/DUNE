@@ -1,7 +1,0 @@
-,Cluster,Class List,Average_F1_With_Others,Number_of_classes,Other_Classes
-0,2,['scanning'],75.96550333850462,1,[]
-1,4,"['mitm', 'ransomware']",82.42578835971855,2,['scanning']
-2,3,"['injection', 'password']",73.5896940523952,2,"['scanning', 'mitm', 'ransomware']"
-3,1,"['xss', 'ddos']",72.9913969200496,2,"['scanning', 'mitm', 'ransomware', 'injection', 'password']"
-4,5,['normal'],98.3744835451516,1,"['scanning', 'mitm', 'ransomware', 'injection', 'password', 'xss', 'ddos']"
-5,0,"['dos', 'backdoor']",62.2169604490047,2,"['scanning', 'mitm', 'ransomware', 'injection', 'password', 'xss', 'ddos', 'normal']"

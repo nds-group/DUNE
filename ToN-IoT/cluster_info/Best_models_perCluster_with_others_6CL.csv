@@ -1,7 +1,0 @@
-,Cluster,Class List,Feats_Names_With_Others,Depth_With_Others,Tree_With_Others,Feats_With_Others,N_Leaves_With_Others,N_With_Others,Total_TCAM_Usage_With_Others,Macro_f1_FL_With_Others,Weighted_f1_FL_With_Others,Micro_f1_FL_With_Others
-0,0,"['dos', 'backdoor']","['ip.ttl', 'tcp.window_size_value', 'dstport']","[11, 16, 12, 13, 13]",5.0,3.0,41.0,3.0,2.7777777777777777,62.2169604490047,99.95985852647557,99.96843853820516
-1,1,"['xss', 'ddos']","['Packet Length Total', 'udp.length', 'ip.len', 'Max Packet Length', 'tcp.window_size_value', 'dstport']","[17, 13]",2.0,6.0,85.0,3.0,3.4722222222222223,72.9913969200496,73.48632470358184,74.1084388884454
-2,2,['scanning'],"['dstport', 'ip.ttl', 'Packet Length Total', 'ip.len', 'tcp.window_size_value', 'tcp.hdr_len', 'Max Packet Length']","[13, 16]",2.0,7.0,129.0,2.0,4.513888888888888,75.96550333850462,96.94891606945636,96.63997532168771
-3,3,"['injection', 'password']","['dstport', 'tcp.window_size_value', 'Packet Length Total', 'ip.len', 'udp.length', 'Min Packet Length', 'Max Packet Length']","[16, 12]",2.0,7.0,41.0,4.0,3.125,73.5896940523952,85.21226650713926,86.18674046336814
-4,4,"['mitm', 'ransomware']","['dstport', 'srcport', 'Max Packet Length', 'tcp.window_size_value', 'Packet Length Total']",[20],1.0,5.0,173.0,2.0,3.125,82.42578835971855,99.68952658067772,99.72103785645784
-5,5,['normal'],"['ip.ttl', 'ip.len', 'udp.length', 'tcp.window_size_value']","[11, 11]",2.0,4.0,41.0,2.0,2.083333333333333,98.3744835451516,99.20430835135711,99.20819722267387
