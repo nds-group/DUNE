@@ -8,8 +8,6 @@ import pandas as pd
 import os
 import re
 
-flow_pkts_data_file_path = "/home/ddeandres/UNSW_PCAPS/hyb_code/16-10-05-flow-counts.csv"
-
 # list of all extracted features
 feats_all = ["ip.len", 'ip.hdr_len', "ip.ttl", "tcp.flags.syn", "tcp.flags.ack", "tcp.flags.push", "tcp.flags.fin",
              "tcp.flags.rst", "tcp.flags.reset", "tcp.flags.ece", "ip.proto", "srcport", "dstport",
@@ -93,16 +91,28 @@ def total_tcam_usage(models_df):
     return models_df
 
 
-def select_best_models_per_cluster(cluster_info, score_per_class_df, folder_name):
+def select_best_models_per_cluster(cluster_info, analysis_files_dir, flow_pkts_data_file_path) -> pd.DataFrame:
+    """ Selects the best model based on the available model analysis files and the flow pkts data
+    :param cluster_info: a Dataframe containing the cluster information, i.e., classes and features information
+    :param analysis_files_dir: Path to the analysis files directory
+    :param flow_pkts_data_file_path: Path to the flow pkts data file
+    :return: a DataFrame with the characteristics of each selected model in each row
+    """
 
     n_of_clusters = cluster_info.shape[0]
     cluster_info = cluster_info.assign(Feats_Names=np.nan)
     cluster_info = cluster_info.astype(dtype={"Feats_Names": "object"})
 
-    directory = os.fsencode(folder_name)
+    directory = os.fsencode(analysis_files_dir)
     d_frames = defaultdict(list)
     classes = list(chain.from_iterable(cluster_info['Class List'].to_list()))
     pattern = re.compile('[0-9]+')
+
+    flow_pkt_counts = pd.read_csv(flow_pkts_data_file_path)
+    support = flow_pkt_counts['label'].value_counts().loc[classes].sort_index()
+
+    score_per_class_df = pd.DataFrame({'class': classes, 'support': support.to_list()})
+    score_per_class_df['Cluster'] = [-1] * len(score_per_class_df)
 
     for file in os.listdir(directory):
         file_string = file.decode("utf-8")
@@ -120,20 +130,20 @@ def select_best_models_per_cluster(cluster_info, score_per_class_df, folder_name
 
         grep_data = pattern.findall(file_string)
         n_point = int(grep_data[0])
-        total_n_classes = int(grep_data[1])
         cl = int(grep_data[2])
 
-        model_analysis_for_nth = pd.read_csv(f'{folder_name}/{file_string}', sep=';',
+        model_analysis_for_nth = pd.read_csv(f'{analysis_files_dir}/{file_string}', sep=';',
                                              converters=dict.fromkeys(['feats'], literal_converter))
         model_analysis_for_nth['N'] = n_point
         model_analysis_for_nth['Avg_F1_score'] = model_analysis_for_nth.apply(lambda x: (1) * (x['Macro_f1_FL']),
                                                                               axis=1)
         d_frames[cl].append(model_analysis_for_nth)
 
+    chosen_models=[]
     ### For each cluster
     for cl in range(0, n_of_clusters):
         models_for_cluster = pd.concat(d_frames[cl])
-        models_for_cluster = models_for_cluster.reset_index()
+        models_for_cluster = models_for_cluster.reset_index(drop=True)
 
         #### Calculate TOTAL TCAM usage and calculate SUCCESS SCORE
         models_with_tcam_info = calculate_tcam_for_codetables(models_for_cluster)
@@ -142,28 +152,39 @@ def select_best_models_per_cluster(cluster_info, score_per_class_df, folder_name
         ####
 
         #### ORDER in terms of SUCCESS SCORE and choose the BEST
-        chosen_model_tcam_usage = \
-            models_with_tcam_info.sort_values('success_score', ascending=0)['total_tcam_usage'].to_list()[0] * 100
-        chosen_model_avg_f1_score = \
-            models_with_tcam_info.sort_values('success_score', ascending=0)['Avg_F1_score'].to_list()[0] * 100
-        chosen_model_index = models_with_tcam_info.sort_values('success_score', ascending=0).head(1).index.to_list()[0]
+        chosen_model_index = models_with_tcam_info.sort_values('success_score', ascending=0).head(1).index.values
         ####
+        chosen_models.append(models_with_tcam_info.loc[chosen_model_index])
 
-        chosen_model = models_with_tcam_info.loc[chosen_model_index]
+    best_models_df = pd.concat(chosen_models).reset_index(drop=True)
+    best_models_df.index.name = 'Cluster'
+    return best_models_df
 
+def append_best_models_info_to_cluster_info(cluster_info: pd.DataFrame, best_models_df: pd.DataFrame) -> pd.DataFrame:
+    n_of_clusters = cluster_info.shape[0]
+
+    for cl in range(0, n_of_clusters):
         #### Store the information of chosen model
-        cluster_info.at[cl, 'Depth'] = chosen_model['depth']
-        cluster_info.at[cl, 'Tree'] = int(chosen_model['tree'])
-        cluster_info.at[cl, 'Feats'] = int(chosen_model['no_feats'])
-        cluster_info.at[cl, 'Feats_Names'] = chosen_model['feats']
-        cluster_info.at[cl, 'N_Leaves'] = int(chosen_model['N_Leaves'])
-        cluster_info.at[cl, 'N'] = int(chosen_model['N'])
-        cluster_info.at[cl, 'Macro_f1_FL'] = chosen_model['Macro_f1_FL'] * 100
-        cluster_info.at[cl, 'Weighted_f1_FL'] = chosen_model['Weighted_f1_FL'] * 100
-        cluster_info.at[cl, 'Micro_f1_FL'] = chosen_model['Micro_f1_FL'] * 100
-        cluster_info.at[cl, 'Total_TCAM_Usage'] = chosen_model['total_tcam_usage'] * 100
+        cluster_info.at[cl, 'Depth'] = best_models_df.loc[cl]['depth']
+        cluster_info.at[cl, 'Tree'] = int(best_models_df.loc[cl]['tree'])
+        cluster_info.at[cl, 'Feats'] = int(best_models_df.loc[cl]['no_feats'])
+        cluster_info.at[cl, 'Feature List'] = list(best_models_df.loc[cl]['feats'])
+        cluster_info.at[cl, 'N_Leaves'] = int(best_models_df.loc[cl]['N_Leaves'])
+        cluster_info.at[cl, 'N'] = int(best_models_df.loc[cl]['N'])
+        cluster_info.at[cl, 'Macro_f1_FL'] = best_models_df.loc[cl]['Macro_f1_FL'] * 100
+        cluster_info.at[cl, 'Weighted_f1_FL'] = best_models_df.loc[cl]['Weighted_f1_FL'] * 100
+        cluster_info.at[cl, 'Micro_f1_FL'] = best_models_df.loc[cl]['Micro_f1_FL'] * 100
+        cluster_info.at[cl, 'Total_TCAM_Usage'] = best_models_df.loc[cl]['total_tcam_usage'] * 100
 
-        cl_report = convert_str_to_dict(chosen_model['cl_report_FL'])
+    return cluster_info
+
+def generate_score_per_class_report_for_best_models(classes, best_models_df: pd.DataFrame, support) -> pd.DataFrame:
+    # initialise dataframe
+    score_per_class_df = pd.DataFrame({'class': classes, 'support': support.to_list()})
+    score_per_class_df['Cluster'] = [-1] * len(score_per_class_df)
+
+    for cluster_id, row in best_models_df.iterrows():
+        cl_report = convert_str_to_dict(row['cl_report_FL'])
         result_dict = {}
         for d_keys in cl_report.keys():
             if (d_keys != 'accuracy') and (d_keys != 'micro avg'):
@@ -172,49 +193,17 @@ def select_best_models_per_cluster(cluster_info, score_per_class_df, folder_name
                     df_col = 'Cluster_F1_Score'
                     score_per_class_df.loc[score_per_class_df['class'] == d_keys, df_col] = cl_report[d_keys][
                                                                                                 'f1-score'] * 100
-                    score_per_class_df.loc[score_per_class_df['class'] == d_keys, 'Cluster'] = cl
-        ####
-
-    return cluster_info, score_per_class_df
+                    score_per_class_df.loc[score_per_class_df['class'] == d_keys, 'Cluster'] = cluster_id
+    return score_per_class_df
 
 
-def calculate_F1_score(cluster_data_file_path, model_analysis_dir_path):
-    results_path = f'{model_analysis_dir_path}/perf_results'
-
-    ### Initialize dataframes to use for statistics
-    cluster_info = pd.read_csv(cluster_data_file_path,
-                               converters=dict.fromkeys(['Class List', 'Feature List'], literal_converter))
-
-    classes = list(chain.from_iterable(cluster_info['Class List'].to_list()))
-    classes.sort()
-
-    flow_pkt_counts = pd.read_csv(flow_pkts_data_file_path)
-    support = flow_pkt_counts['label'].value_counts().loc[classes].sort_index()
-
-
-    score_per_class_df = pd.DataFrame({'class': classes, 'support': support.to_list()})
-
-    score_per_class_df['Cluster'] = [-1]*len(score_per_class_df)
-    # score_per_class_df['Cluster_F1_Score_With_Others'] = [-1]*len(score_per_class_df)
-
-
-    cluster_info = cluster_info.drop(['Unnamed: 0'], axis=1)
-    cluster_info = cluster_info.set_index('Cluster', drop=True)
-    cluster_info, score_per_cluster_per_class_df = select_best_models_per_cluster(cluster_info, score_per_class_df,
-                                                                                  model_analysis_dir_path)
-
-    #Create folder for saving results
-    if not os.path.exists(results_path):
-        os.makedirs(results_path)
-
-    cluster_info.to_csv(f'{results_path}/cluster_info_df.csv')
-    score_per_cluster_per_class_df.to_csv(f'{results_path}/score_per_cluster_per_class_df.csv')
-
-    ## total TCAM usage
-    total_TCAM = sum(cluster_info['Total_TCAM_Usage'].to_list()[1:])
-
-    # score_calc_df = score_per_class_df[score_per_class_df['f1_score']>5]
+def calculate_f1_score(score_per_class_df):
     score_per_class_df['mult_With_Others'] = score_per_class_df['Cluster_F1_Score']*score_per_class_df['support']
     scores = calculate_score(np.sum(np.array(score_per_class_df['support'])), score_per_class_df['mult_With_Others'],
                              score_per_class_df['Cluster_F1_Score'])
     return scores
+
+def calculate_TOTAL_TCAM_usage(cluster_info):
+    ## total TCAM usage
+    total_TCAM = sum(cluster_info['Total_TCAM_Usage'].to_list()[1:])
+    return total_TCAM
