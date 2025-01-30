@@ -102,11 +102,11 @@ def total_tcam_usage(models_df):
     return models_df
 
 
-def select_best_models_per_cluster(cluster_info, analysis_files_dir, flow_pkts_data_file_path) -> pd.DataFrame:
+def select_best_models_per_cluster(cluster_info, analysis_files_dir, support) -> pd.DataFrame:
     """ Selects the best model based on the available model analysis files and the flow pkts data
     :param cluster_info: a Dataframe containing the cluster information, i.e., classes and features information
     :param analysis_files_dir: Path to the analysis files directory
-    :param flow_pkts_data_file_path: Path to the flow pkts data file
+    :param support: a list with the support values matching the classes list
     :return: a DataFrame with the characteristics of each selected model in each row
     """
 

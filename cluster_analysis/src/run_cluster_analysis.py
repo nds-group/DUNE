@@ -62,19 +62,23 @@ def main():
             # cluster_info = pd.read_csv(cluster_data_file_path, converters=dict.fromkeys(['Class List', 'Feature List'], literal_converter))
             cluster_info = cluster_info.drop(['Unnamed: 0'], axis=1)
             cluster_info = cluster_info.set_index('Cluster', drop=True)
-
-            best_models_df = select_best_models_per_cluster(cluster_info, results_dir_path, flow_counts_file_path)
-            cluster_info = append_best_models_info_to_cluster_info(cluster_info, best_models_df)
-
             classes = cluster_info['Class List'].sum()
             classes.sort()
-            flow_pkt_counts = pd.read_csv(flow_counts_file_path)
-            support = flow_pkt_counts['label'].value_counts().loc[classes].sort_index()
+
+            if use_case == 'TON-IOT':
+                flow_pkt_counts = pd.read_csv(flow_counts_test_file_path)
+                support = flow_pkt_counts['type'].value_counts().loc[classes].sort_index()
+            else:
+                flow_pkt_counts = pd.read_csv(flow_counts_file_path)
+                support = flow_pkt_counts['label'].value_counts().loc[classes].sort_index()
+
+            best_models_df = select_best_models_per_cluster(cluster_info, results_dir_path, support)
+            cluster_info = append_best_models_info_to_cluster_info(cluster_info, best_models_df)
             score_per_class_df = generate_score_per_class_report_for_best_models(classes, best_models_df, support)
 
             # Create folder for saving results
-            if not os.path.exists(results_dir_path):
-                os.makedirs(results_dir_path)
+            if not os.path.exists(f'{results_dir_path}/perf_results'):
+                os.makedirs(f'{results_dir_path}/perf_results')
 
             cluster_info.to_csv(f'{results_dir_path}/perf_results/cluster_info_df.csv')
             score_per_class_df.to_csv(f'{results_dir_path}/perf_results//score_per_cluster_per_class_df.csv')
