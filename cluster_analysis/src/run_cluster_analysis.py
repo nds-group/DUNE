@@ -7,11 +7,14 @@ from cluster_analysis.src.model_performance.performanceAnalyzer import calculate
 from model_analysis.modelAnalyzer import UNSWModelAnalyzer, TONModelAnalyzer
 from model_performance.performanceAnalyzer import calculate_f1_score, select_best_models_per_cluster, \
     append_best_models_info_to_cluster_info, generate_score_per_class_report_for_best_models
+from tabulate import tabulate
 import multiprocessing as mp
 from ast import literal_eval
-from itertools import product, chain
+from itertools import product
 import pandas as pd
 import logging
+
+width = os.get_terminal_size().columns
 
 cluster_info = None
 
@@ -26,7 +29,7 @@ def run_analysis(input_data):
     return __run_analysis(n_point, cluster_id)
 
 def __run_analysis(n_point, cluster_id):
-    print(f"Starting analysis of: Cluster id: {cluster_id}, npoint {n_point}")
+    logger.info(f"Starting analysis of: Cluster id: {cluster_id}, npoint {n_point}")
     f_name = f"{results_dir_path}/unsw_models_{n_point}pkts_PF_WB_20CL_Cluster{cluster_id}.csv"
     model_analyzer = None
     if use_case == 'UNSW':
@@ -37,14 +40,14 @@ def __run_analysis(n_point, cluster_id):
                                           flow_counts_test_file_path, classes_filter, cluster_data_file_path, logger)
     model_analyzer.load_cluster_data(cluster_info.loc[cluster_id])
     model_analyzer.analyze_model_n_packets(n_point, f_name, force_rewrite, grid_search)
-    print(f"Finished analyzing n={n_point}, Cluster={cluster_id}. Results at: {results_dir_path}")
+    logger.info(f"Finished analyzing n={n_point}, Cluster={cluster_id}. Results at: {results_dir_path}")
 
 
 def main():
     global cluster_info
     cluster_id_list = cluster_info['Cluster'].to_list()
     consumed_cores = min([max_usable_cores, len(inference_points_list) * len(cluster_id_list)])
-    print(f'Will use {consumed_cores} cores. Starting pool...')
+    logger.info(f'Will use {consumed_cores} cores. Starting pool...')
 
     with mp.get_context('fork').Pool(processes=consumed_cores) as pool:
         input_data = list(product(inference_points_list, cluster_id_list))
@@ -72,6 +75,7 @@ def main():
                 flow_pkt_counts = pd.read_csv(flow_counts_file_path)
                 support = flow_pkt_counts['label'].value_counts().loc[classes].sort_index()
 
+            logger.info("Selecting the best models for each cluster...")
             best_models_df = select_best_models_per_cluster(cluster_info, results_dir_path, support)
             cluster_info = append_best_models_info_to_cluster_info(cluster_info, best_models_df)
             score_per_class_df = generate_score_per_class_report_for_best_models(classes, best_models_df, support)
@@ -83,10 +87,15 @@ def main():
             cluster_info.to_csv(f'{results_dir_path}/perf_results/cluster_info_df.csv')
             score_per_class_df.to_csv(f'{results_dir_path}/perf_results//score_per_cluster_per_class_df.csv')
 
+            print('=' * width)
             score = calculate_f1_score(score_per_class_df)
-            print(f"F1 score: {score}")
+            print(f"Average F1 score:\n \tMacro: {score[0]}\n  \tWeighted: {score[1]}")
             tcam = calculate_TOTAL_TCAM_usage(cluster_info)
             print(f"TOTAL TCAM usage: {tcam}")
+            # print the cluster info with the best model
+            print(f"Final Models information:")
+            print(tabulate(cluster_info, headers='keys', tablefmt='psql'))
+            print("END")
         except ValueError as e:
             logger.error(f"F1 score could not be calculated. The following error was raised: {e}")
     del pool
