@@ -61,12 +61,19 @@ def concat_csvs(path, dir_entries):
 
 
 def calculate_tcam_for_codetables(models_df):
+    """ Calculates the required TCAM for each feature table
+        :param models_df: the DataFrame describing the partition with the TCAM usage information for code tables
+        :return: the DataFrame describing the partition with the TCAM usage information for code tables
+    """
     models_df['tcam_codetable'] = models_df.apply(lambda x: (int(x['N_Leaves'] / 44) + 1) * x['tree'], axis=1)
-
     return models_df
 
 
-def calculate_tcam_for_featable(models_df):
+def calculate_tcam_for_featables(models_df):
+    """ Calculates the required TCAM for each feature table
+    :param models_df: the DataFrame describing the partition with the TCAM usage information for feature tables
+    :return: the DataFrame describing the partition with the TCAM usage information for feature tables
+    """
     feats_size_dict = {}
     for f_ind in range(0, len(feats_all)):
         feats_size_dict[feats_all[f_ind]] = feats_sizes[f_ind]
@@ -84,6 +91,10 @@ def calculate_tcam_for_featable(models_df):
 
 
 def total_tcam_usage(models_df):
+    """Computes the total TCAM used by the select partition
+    :param models_df: the DataFrame describing the partition
+    :return: the DataFrame describing the partition with the TOTAL TCAM usage information
+    """
     models_df['total_tcam_tbl_usage'] = models_df.apply(lambda x: x['tcam_feature_table'] + x['tcam_codetable'], axis=1)
     models_df['total_tcam_usage'] = models_df.apply(lambda x: x['total_tcam_tbl_usage'] / available_TCAM_table, axis=1)
     models_df['success_score'] = models_df.apply(
@@ -147,7 +158,7 @@ def select_best_models_per_cluster(cluster_info, analysis_files_dir, flow_pkts_d
 
         #### Calculate TOTAL TCAM usage and calculate SUCCESS SCORE
         models_with_tcam_info = calculate_tcam_for_codetables(models_for_cluster)
-        models_with_tcam_info = calculate_tcam_for_featable(models_with_tcam_info)
+        models_with_tcam_info = calculate_tcam_for_featables(models_with_tcam_info)
         models_with_tcam_info = total_tcam_usage(models_with_tcam_info)
         ####
 
@@ -160,7 +171,13 @@ def select_best_models_per_cluster(cluster_info, analysis_files_dir, flow_pkts_d
     best_models_df.index.name = 'Cluster'
     return best_models_df
 
+
 def append_best_models_info_to_cluster_info(cluster_info: pd.DataFrame, best_models_df: pd.DataFrame) -> pd.DataFrame:
+    """Append the information of the best models to the cluster_info DataFrame
+    :param cluster_info: a Dataframe containing the cluster information, i.e., classes and features information
+    :param best_models_df: a DataFrame with the best models information
+    :return: a DataFrame with the information of the best models information
+    """
     n_of_clusters = cluster_info.shape[0]
 
     for cl in range(0, n_of_clusters):
@@ -178,7 +195,14 @@ def append_best_models_info_to_cluster_info(cluster_info: pd.DataFrame, best_mod
 
     return cluster_info
 
+
 def generate_score_per_class_report_for_best_models(classes, best_models_df: pd.DataFrame, support) -> pd.DataFrame:
+    """Generate a report of the performance scores for each class in the best models DataFrame
+    :param classes: a list with all the classes in the cluster
+    :param best_models_df: a DataFrame with the best models information
+    :param support: a list with the support values matching the classes list
+    :return: a DataFrame with the performance scores for each class in the best models DataFrame
+    """
     # initialise dataframe
     score_per_class_df = pd.DataFrame({'class': classes, 'support': support.to_list()})
     score_per_class_df['Cluster'] = [-1] * len(score_per_class_df)
@@ -198,12 +222,26 @@ def generate_score_per_class_report_for_best_models(classes, best_models_df: pd.
 
 
 def calculate_f1_score(score_per_class_df):
+    """Compute the F1 score of the provided report
+    :param score_per_class_df: a DataFrame with the performance scores report for each class in the best models DataFrame
+    :return: a tuple with the average macro and weighted f1 score across all the classes
+    """
     score_per_class_df['mult_With_Others'] = score_per_class_df['Cluster_F1_Score']*score_per_class_df['support']
+
+    def calculate_score(support_total, mult_score_support, score):
+        macro_score = np.mean(np.array(score))
+        weighted_score = np.sum(mult_score_support) / support_total
+
+        return macro_score, weighted_score
+
     scores = calculate_score(np.sum(np.array(score_per_class_df['support'])), score_per_class_df['mult_With_Others'],
                              score_per_class_df['Cluster_F1_Score'])
     return scores
 
 def calculate_TOTAL_TCAM_usage(cluster_info):
-    ## total TCAM usage
+    """Computes the TOTAL TCAM used by the distributed model
+    :param cluster_info: a Dataframe containing the cluster information, i.e., classes and features information
+    return: the total TCAM usage
+    """
     total_TCAM = sum(cluster_info['Total_TCAM_Usage'].to_list()[1:])
     return total_TCAM
