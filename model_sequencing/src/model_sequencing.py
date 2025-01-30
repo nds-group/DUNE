@@ -9,7 +9,19 @@ import numpy as np
 import gurobipy 
 
 '''
-Get the list of clusters, classes and list of clusters corresponding to the 
+Function to assign related values to each packet to specify if it will run packet-level or flow-level classification
+'''
+def assign_sample_nature(row):
+    if (row["Min Packet Length"] == -1 and
+        row["Max Packet Length"] == -1 and
+        row["Flow IAT Min"] == -1 and
+        row["Flow IAT Max"] == -1):
+        return "pkt"
+    else:
+        return "flw"
+    
+'''
+Function to get the list of clusters, classes and list of clusters corresponding to the 
 given classes.
 '''
 def get_cluster_details(cluster_info_df):
@@ -26,6 +38,9 @@ def get_cluster_details(cluster_info_df):
         cluster_no = cluster_no + 1
     return cluster_list, all_classes_in_clusters, cluster_info_all_classes
 
+'''
+Function to get the dataframe that holds the information of clusters sequenced
+'''
 def get_final_cluster_info(clusters_best_model_info):
     # Create the df
     seq_cluster_info = clusters_best_model_info.copy()
@@ -55,17 +70,10 @@ def get_final_cluster_info(clusters_best_model_info):
         other_classes.append(other_list)
     seq_cluster_info_w_others['Other_Classes'] = other_classes
     return seq_cluster_info_w_others
-    
-# Define a function to check the conditions and assign values
-def assign_sample_nature(row):
-    if (row["Min Packet Length"] == -1 and
-        row["Max Packet Length"] == -1 and
-        row["Flow IAT Min"] == -1 and
-        row["Flow IAT Max"] == -1):
-        return "pkt"
-    else:
-        return "flw"
 
+'''
+Function to get the test labels
+'''
 def get_test_labels_others(IoT_Test, classes, classes_df):
     array_of_indices = []
     unique_labels = IoT_Test["Label_NEW"].unique()
@@ -75,6 +83,9 @@ def get_test_labels_others(IoT_Test, classes, classes_df):
         array_of_indices.append(index)
     return unique_labels, array_of_indices
 
+'''
+Function to get train and test data for the model
+'''
 def get_x_y_flow_others(Dataset, feats, classes):    
     X = Dataset[feats]
     y = Dataset['Label_NEW'].replace(classes, range(len(classes)))
@@ -136,6 +147,9 @@ def expand_rows_and_get_scores_others(y_true, y_pred, y_test_ALL, sample_nature,
     
     return num_samples, macro_f1_PL, weighted_f1_PL, micro_f1_PL, cl_report_PL, macro_f1_FL, weighted_f1_FL, micro_f1_FL, c_report_FL, expanded_y_true, expanded_y_pred, expanded_weights, expanded_y_true_all
 
+"""
+Function to train RF model
+"""
 def analyze_model(use_case, classes_filter, npkts, depth, n_tree, max_leaves, feats, classes, classes_df, flow_counts_test_file_path, flow_counts_train_file_path, train_data_dir_path, test_data_dir_path):    
 
     if(use_case == 'UNSW'):
@@ -229,7 +243,9 @@ def analyze_model(use_case, classes_filter, npkts, depth, n_tree, max_leaves, fe
                            
     return cl_report_FL, expanded_y_true, expanded_y_pred, expanded_weights, expanded_y_true_all
     
-
+"""
+Function to get the confusion matrix of the models of clusters
+"""
 def get_confusion_matrix(use_case, classes_filter, cluster_list, all_classes_in_clusters, clusters_best_model_info, flow_counts_test_file_path, flow_counts_train_file_path, train_data_dir_path, test_data_dir_path):
     cm_matrix = pd.DataFrame()
     cm_matrix['Classes'] = [i for i in all_classes_in_clusters]
@@ -292,6 +308,9 @@ def get_confusion_matrix(use_case, classes_filter, cluster_list, all_classes_in_
             
     return cm_matrix, cm_matrix_cluster
 
+"""
+Function to normalize the confusion matrix
+"""
 def normalize_confusion_matrix(cm_matrix_cluster, n_of_clusters):
     cm_matrix_cluster_normalized_df = pd.DataFrame()
     cm_matrix_cluster_normalized_df['Clusters'] = cm_matrix_cluster['Clusters'].to_list()
@@ -310,6 +329,9 @@ def normalize_confusion_matrix(cm_matrix_cluster, n_of_clusters):
     
     return cm_matrix_cluster_normalized_df, cluster_list_str
 
+'''
+Function to formulate and run TSP to find the optimal sequence of the clusters 
+'''
 def TSP_MTZ_Formulation(n, costMatrix_FP, cost_F1):
     #%
     # 1 | initialize sets and notations
@@ -367,29 +389,28 @@ def TSP_MTZ_Formulation(n, costMatrix_FP, cost_F1):
     return solutionObjective, solutionGap, tourRepo, completeResults
 
 if __name__ == '__main__':
-    # 
+    # Read the data
     config = configparser.ConfigParser()
     config.read('params.ini')
-    # use_case = config['DEFAULT']['use_case']
-    use_case = 'TON-IOT'
-    # print(use_case)
-    if (use_case=='TON-IOT'):
-        flow_counts_train_file_path = config[use_case]['flow_counts_train_file_path'] 
+    use_case = config['DEFAULT']['use_case']
+    flow_counts_train_file_path = config[use_case]['flow_counts_train_file_path'] 
     classes_filter = config[use_case]['classes_filter'] 
     classes_filter = classes_filter[2:-2].split("', '")
     flow_counts_test_file_path = config[use_case]['flow_counts_test_file_path'] 
     best_models_path = config[use_case]['best_models_per_cluster_path']
     train_data_dir_path = config[use_case]['train_data_dir_path']
     test_data_dir_path = config[use_case]['test_data_dir_path']
-    # 
+    
+    # Get the cluster information which is obtained in the previous steps
     clusters_best_model_info = pd.read_csv(best_models_path)
     cluster_list, all_classes_in_clusters, cluster_info_all_classes = get_cluster_details(clusters_best_model_info)
-    # 
+    
+    # Get the confusion matrix between the models of the corresponding clusters
     cm_matrix, cm_matrix_cluster = get_confusion_matrix(use_case, classes_filter, cluster_list, all_classes_in_clusters, clusters_best_model_info, flow_counts_test_file_path, flow_counts_train_file_path, train_data_dir_path, test_data_dir_path)
-    # 
     cm_matrix_cluster_normalized_df, cluster_list_str = normalize_confusion_matrix(cm_matrix_cluster, len(cluster_list))
     print(cm_matrix_cluster_normalized_df)
-    #
+    
+    # Order the clusters
     cost_FP = cm_matrix_cluster_normalized_df[cluster_list_str].to_numpy()
     cost_F1 = clusters_best_model_info['Macro_f1_FL_With_Others'].to_list()
     solutionObjective, solutionGap, tourRepo, completeResults = TSP_MTZ_Formulation(len(cluster_list), cost_FP, cost_F1)
@@ -401,7 +422,8 @@ if __name__ == '__main__':
     clusters_seq = list(dict(sorted(store_cluster_occ.items(), key=lambda item: item[1])).keys())[::-1]
     # clusters_seq = (2, 0, 1, 3, 4, 5)
     print(clusters_seq)
-    # # 
+    
+    # Get final clustering information after sequencing
     seq_cluster_info_w_others = get_final_cluster_info(clusters_best_model_info)
     print(seq_cluster_info_w_others)
     # seq_cluster_info_w_others.to_csv(use_case+'_sequenced_clusters_info.csv')
