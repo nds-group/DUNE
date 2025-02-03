@@ -388,11 +388,26 @@ def TSP_MTZ_Formulation(n, costMatrix_FP, cost_F1):
 
     return solutionObjective, solutionGap, tourRepo, completeResults
 
+'''
+Function to get the sequence of the sub-models obtained by the TSP
+'''
+def get_cluster_seq(tourRepo, n_of_clusters):
+    store_cluster_occ = {}
+    for i in range(0, n_of_clusters):
+        store_cluster_occ[i] = 0
+    for var in tourRepo:
+        store_cluster_occ[var[0][0]-1] = store_cluster_occ[var[0][0]-1] + 1
+    clusters_seq = list(dict(sorted(store_cluster_occ.items(), key=lambda item: item[1])).keys())[::-1]
+    
+    return clusters_seq
+
+
 if __name__ == '__main__':
     # Read the data
     config = configparser.ConfigParser()
     config.read('params.ini')
-    use_case = config['DEFAULT']['use_case']
+    # use_case = config['DEFAULT']['use_case']
+    use_case = "TON-IOT"
     flow_counts_train_file_path = config[use_case]['flow_counts_train_file_path'] 
     classes_filter = config[use_case]['classes_filter'] 
     classes_filter = classes_filter[2:-2].split("', '")
@@ -414,12 +429,9 @@ if __name__ == '__main__':
     cost_FP = cm_matrix_cluster_normalized_df[cluster_list_str].to_numpy()
     cost_F1 = clusters_best_model_info['Macro_f1_FL_With_Others'].to_list()
     solutionObjective, solutionGap, tourRepo, completeResults = TSP_MTZ_Formulation(len(cluster_list), cost_FP, cost_F1)
-    store_cluster_occ = {}
-    for i in range(0, len(cluster_list)):
-        store_cluster_occ[i] = 0
-    for var in tourRepo:
-        store_cluster_occ[var[0][0]-1] = store_cluster_occ[var[0][0]-1] + 1
-    clusters_seq = list(dict(sorted(store_cluster_occ.items(), key=lambda item: item[1])).keys())[::-1]
+    
+    # Get the order of sub-models
+    clusters_seq = get_cluster_seq(tourRepo, len(cluster_list))
     # clusters_seq = (2, 0, 1, 3, 4, 5)
     print(clusters_seq)
     
