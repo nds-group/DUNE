@@ -28,37 +28,6 @@ def literal_converter(val):
 def convert_str_to_dict(field_value):
     return json.loads(field_value.replace("\'", "\""))
 
-def calculate_score(support_total, mult_score_support, score):
-    macro_score = np.mean(np.array(score))
-    weighted_score = np.sum(mult_score_support) / support_total
-
-    return macro_score, weighted_score
-
-
-def concat_csvs(path, dir_entries):
-    d_frames = []
-    count = 2
-
-    for dir_csv in dir_entries:
-        f_name = path + dir_csv
-        i_df = pd.read_csv(f_name, sep=';')
-
-        i_df = i_df.loc[~((i_df['tree'] == 5) & (i_df['no_feats'] > 4))]
-        i_df = i_df.loc[~((i_df['tree'] == 3) & (i_df['no_feats'] > 7))]
-        i_df = i_df[i_df['tree'] != 2]
-        i_df = i_df[i_df['tree'] != 4]
-
-        i_df = i_df[['depth', 'tree', 'no_feats', 'New_Macro_F1', 'New_Weighted_F1', 'N_Leaves', 'feats']]
-        i_df = i_df[i_df['tree'] < 6]
-        i_df = i_df[i_df['no_feats'] < 11]
-        i_df = i_df[i_df['N_Leaves'] > 120]
-        i_df['N'] = count
-        i_df['F1_score'] = i_df.apply(lambda x: 0.5 * (x['New_Macro_F1'] + x['New_Weighted_F1']), axis=1)
-        d_frames.append(i_df)
-        count = count + 1
-
-    return pd.concat(d_frames)
-
 
 def calculate_tcam_for_codetables(models_df):
     """ Calculates the required TCAM for each feature table
@@ -97,8 +66,6 @@ def total_tcam_usage(models_df):
     """
     models_df['total_tcam_tbl_usage'] = models_df.apply(lambda x: x['tcam_feature_table'] + x['tcam_codetable'], axis=1)
     models_df['total_tcam_usage'] = models_df.apply(lambda x: x['total_tcam_tbl_usage'] / available_TCAM_table, axis=1)
-    models_df['success_score'] = models_df.apply(
-        lambda x: (0.5 * x['Avg_F1_score'] + 0.5 * (1 - x['total_tcam_usage'])), axis=1)
     return models_df
 
 
@@ -119,13 +86,11 @@ def select_best_models_per_cluster(cluster_info, analysis_files_dir, support) ->
     classes = list(chain.from_iterable(cluster_info['Class List'].to_list()))
     pattern = re.compile('[0-9]+')
 
-    flow_pkt_counts = pd.read_csv(flow_pkts_data_file_path)
-    support = flow_pkt_counts['label'].value_counts().loc[classes].sort_index()
-
     score_per_class_df = pd.DataFrame({'class': classes, 'support': support.to_list()})
     score_per_class_df['Cluster'] = [-1] * len(score_per_class_df)
 
     for file in os.listdir(directory):
+        # ToDo: filter on the inference point list in the ini file
         file_string = file.decode("utf-8")
         path = os.path.join(directory, file)
         if os.path.isdir(path):
@@ -161,6 +126,9 @@ def select_best_models_per_cluster(cluster_info, analysis_files_dir, support) ->
         models_with_tcam_info = calculate_tcam_for_featables(models_with_tcam_info)
         models_with_tcam_info = total_tcam_usage(models_with_tcam_info)
         ####
+
+        models_with_tcam_info['success_score'] = models_with_tcam_info.apply(
+            lambda x: (0.5 * x['Avg_F1_score'] + 0.5 * (1 - x['total_tcam_usage'])), axis=1)
 
         #### ORDER in terms of SUCCESS SCORE and choose the BEST
         chosen_model_index = models_with_tcam_info.sort_values('success_score', ascending=0).head(1).index.values

@@ -4,7 +4,7 @@ import logging
 import os
 
 
-from model_performance.performanceAnalyzer import calculate_F1_score
+from model_performance.performanceAnalyzer import calculate_f1_score
 from model_analysis.modelAnalyzer import ModelAnalyzer
 from setup_logger import logger
 import multiprocessing as mp
@@ -36,6 +36,7 @@ def __run_analysis(n_point, cluster_id, cluster_data_file_path, cluster_info):
     exp_id = int(stem.split('_')[1])
     logger = logging.getLogger(f'{use_case}.{exp_id}.analyzer_{cluster_id}_{n_point}')
     logger.info(f"Starting analysis of: Cluster id: {cluster_id}, npoint {n_point}")
+    # ToDo: check why the file name has the _WB_PF_ string included.
     f_name = f"{results_dir_path}/{stem}/{use_case}_models_{n_point}pkts_PF_WB_20CL_Cluster{cluster_id}.csv"
     model_analyzer = ModelAnalyzer(train_data_dir_path, test_data_dir_path, flow_counts_file_path,
                                    classes_filter, cluster_data_file_path, logger)
@@ -89,7 +90,8 @@ def run_experiment(folder):
             # wait for all issued task to complete
             pool.join()
             try:
-                score = calculate_F1_score(f'{folder}/{file_string}', str(results_folder))
+                # ToDo: Fix me
+                score = calculate_f1_score(f'{folder}/{file_string}', str(results_folder))
                 logger.info(f"F1 score: {score}")
             except ValueError as e:
                 logger.error(f"F1 score could not be calculated. The following error was raised: {e}")
