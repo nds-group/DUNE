@@ -7,7 +7,8 @@ from sklearn.metrics import accuracy_score, confusion_matrix, classification_rep
 import pyomo.environ as pyo
 import numpy as np
 import gurobipy 
-
+import logging
+from setup_logger import logger
 '''
 Function to assign related values to each packet to specify if it will run packet-level or flow-level classification
 '''
@@ -41,7 +42,7 @@ def get_cluster_details(cluster_info_df):
 '''
 Function to get the dataframe that holds the information of clusters sequenced
 '''
-def get_final_cluster_info(clusters_best_model_info):
+def get_final_cluster_info(clusters_best_model_info, logger):
     # Create the df
     seq_cluster_info = clusters_best_model_info.copy()
     seq_cluster_info = seq_cluster_info[['Cluster', 'Class List', 'Macro_f1_FL_With_Others']]
@@ -69,6 +70,7 @@ def get_final_cluster_info(clusters_best_model_info):
             other_list.extend(c_list[2:-2].split("', '"))
         other_classes.append(other_list)
     seq_cluster_info_w_others['Other_Classes'] = other_classes
+    logging.getLogger(f'{use_case}').info(f'Sequenced Clusters information: \n {seq_cluster_info_w_others}')
     return seq_cluster_info_w_others
 
 '''
@@ -211,7 +213,7 @@ def analyze_model(use_case, classes_filter, npkts, depth, n_tree, max_leaves, fe
     ####
 
     test_labels, test_indices = get_test_labels_others(test_data, classes, classes_df)
-    print("Num Labels: ", len(test_labels))
+    # print("Num Labels: ", len(test_labels))
     # print("Index: ", test_indices)
 
     train_data['sample_nature'] = train_data.apply(assign_sample_nature, axis=1)
@@ -273,8 +275,9 @@ def get_confusion_matrix(use_case, classes_filter, cluster_list, all_classes_in_
             cluster_perf_dict[cl] = 0
         #
         ####
-        print(npkts, n_tree, max_n_leaves, feat_names)
-        print(classes)
+        logging.getLogger(f'{use_case}').info(f'The model info: \n {npkts, n_tree, max_n_leaves, feat_names, classes}')
+        # print(npkts, n_tree, max_n_leaves, feat_names)
+        # print(classes)
         #
         cl_report, expanded_y_true, expanded_y_pred, expanded_weights, expanded_y_true_all = analyze_model(use_case, classes_filter, npkts, depth, n_tree, max_n_leaves, feat_names, classes, classes_df, flow_counts_test_file_path, flow_counts_train_file_path, train_data_dir_path, test_data_dir_path)
         #
@@ -332,7 +335,7 @@ def normalize_confusion_matrix(cm_matrix_cluster, n_of_clusters):
 '''
 Function to formulate and run TSP to find the optimal sequence of the clusters 
 '''
-def TSP_MTZ_Formulation(n, costMatrix_FP, cost_F1):
+def TSP_MTZ_Formulation(n, costMatrix_FP, cost_F1, logger):
     #%
     # 1 | initialize sets and notations
     N = [i for i in range(1,n+1)]
@@ -382,7 +385,8 @@ def TSP_MTZ_Formulation(n, costMatrix_FP, cost_F1):
             cluster_pair[0] = int(cluster_pair[0])
             cluster_pair[1] = int(cluster_pair[1])
             # print(str(model.x[i]), model.x[i].value, cost_FP[(cluster_pair[1], cluster_pair[0])]*cost_F1[cluster_pair[0]])
-            print(str(model.x[i]), model.x[i].value, cost_FP[(cluster_pair[1], cluster_pair[0])],cost_F1[cluster_pair[0]])
+            # print(str(model.x[i]), model.x[i].value, cost_FP[(cluster_pair[1], cluster_pair[0])],cost_F1[cluster_pair[0]])
+            logging.getLogger(f'{use_case}').info(f'{str(model.x[i]), model.x[i].value, cost_FP[(cluster_pair[1], cluster_pair[0])],cost_F1[cluster_pair[0]]}')
     solutionGap = (completeResults.Problem._list[0]['Upper bound'] - completeResults.Problem._list[0]['Lower bound']) / completeResults.Problem._list[0]['Upper bound']
     # runtimeCount = completeResults.Solver._list[0]['Time']
 
@@ -391,23 +395,27 @@ def TSP_MTZ_Formulation(n, costMatrix_FP, cost_F1):
 '''
 Function to get the sequence of the sub-models obtained by the TSP
 '''
-def get_cluster_seq(tourRepo, n_of_clusters):
+def get_cluster_seq(tourRepo, n_of_clusters, logger):
     store_cluster_occ = {}
     for i in range(0, n_of_clusters):
         store_cluster_occ[i] = 0
     for var in tourRepo:
         store_cluster_occ[var[0][0]-1] = store_cluster_occ[var[0][0]-1] + 1
     clusters_seq = list(dict(sorted(store_cluster_occ.items(), key=lambda item: item[1])).keys())[::-1]
-    
+    logging.getLogger(f'{use_case}').info(f'The sequence is: {clusters_seq}')
     return clusters_seq
 
 
 if __name__ == '__main__':
+    logging.basicConfig()
     # Read the data
     config = configparser.ConfigParser()
     config.read('params.ini')
-    # use_case = config['DEFAULT']['use_case']
-    use_case = "TON-IOT"
+    use_case = config['DEFAULT']['use_case']
+    log_level = config['DEFAULT']['log_level']
+    level = logging.getLevelName(log_level)
+    logger = logging.getLogger(use_case)
+    logger.setLevel(level)
     flow_counts_train_file_path = config[use_case]['flow_counts_train_file_path'] 
     classes_filter = config[use_case]['classes_filter'] 
     classes_filter = classes_filter[2:-2].split("', '")
@@ -421,21 +429,21 @@ if __name__ == '__main__':
     cluster_list, all_classes_in_clusters, cluster_info_all_classes = get_cluster_details(clusters_best_model_info)
     
     # Get the confusion matrix between the models of the corresponding clusters
+    logging.getLogger(f'{use_case}').info(f'The analysis starts...')
     cm_matrix, cm_matrix_cluster = get_confusion_matrix(use_case, classes_filter, cluster_list, all_classes_in_clusters, clusters_best_model_info, flow_counts_test_file_path, flow_counts_train_file_path, train_data_dir_path, test_data_dir_path)
     cm_matrix_cluster_normalized_df, cluster_list_str = normalize_confusion_matrix(cm_matrix_cluster, len(cluster_list))
-    print(cm_matrix_cluster_normalized_df)
+    # print(cm_matrix_cluster_normalized_df)
+    logging.getLogger(f'{use_case}').info(f'Normalized confusion matrix is: ')
+    logging.getLogger(f'{use_case}').info(f'{cm_matrix_cluster_normalized_df}')
     
     # Order the clusters
     cost_FP = cm_matrix_cluster_normalized_df[cluster_list_str].to_numpy()
     cost_F1 = clusters_best_model_info['Macro_f1_FL_With_Others'].to_list()
-    solutionObjective, solutionGap, tourRepo, completeResults = TSP_MTZ_Formulation(len(cluster_list), cost_FP, cost_F1)
-    
+    solutionObjective, solutionGap, tourRepo, completeResults = TSP_MTZ_Formulation(len(cluster_list), cost_FP, cost_F1, logger)
     # Get the order of sub-models
-    clusters_seq = get_cluster_seq(tourRepo, len(cluster_list))
-    # clusters_seq = (2, 0, 1, 3, 4, 5)
-    print(clusters_seq)
+    clusters_seq = get_cluster_seq(tourRepo, len(cluster_list), logger)
+    # clusters_seq = (2, 0, 1, 3, 4, 5) #UNSW
     
     # Get final clustering information after sequencing
-    seq_cluster_info_w_others = get_final_cluster_info(clusters_best_model_info)
-    print(seq_cluster_info_w_others)
+    seq_cluster_info_w_others = get_final_cluster_info(clusters_best_model_info, logger)
     # seq_cluster_info_w_others.to_csv(use_case+'_sequenced_clusters_info.csv')
