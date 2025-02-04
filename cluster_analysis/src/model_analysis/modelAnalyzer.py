@@ -70,6 +70,10 @@ class ModelAnalyzer(ABC):
         warnings.filterwarnings("ignore")
         pd.options.mode.chained_assignment = None
 
+    @abstractmethod
+    def prepare_data(self, npkts, classes_filter=None):
+        pass
+
     def _prepare_data(self, npkts, classes_filter, train_file, test_file, flow_counts_train, flow_counts_test):
         """
         Generalized method to handle repeated logic in prepare_data for UNSW and TON analyzers.
@@ -115,7 +119,7 @@ class ModelAnalyzer(ABC):
     def analyze_models(self, features, n_trees, x_train, y_train, x_test, y_test, samples_nature, y_multiply,
                        test_flow_pkt_cnt, test_flow_ids, max_leaf, test_labels, test_indices, filename,
                        weight_of_samples, grid_search=False):
-        # open file to save ouput of analysis
+        # open file to save output of analysis
         root = os.path.splitext(filename)[0]
         extension = os.path.splitext(filename)[1]
         tmp_filename = f'{root}_tmp{extension}'
@@ -129,185 +133,185 @@ class ModelAnalyzer(ABC):
             self.logger.info('You pressed Ctrl+C! Deleting temporary files...')
             os.remove(tmp_filename)
             raise KeyboardInterrupt()
-        # ToDo: bring file context handler into the write_* methods
-        with open(tmp_filename, "w") as res_file:
-            if grid_search:
-                self.write_grid_search(x_test, x_train, max_leaf, n_trees, res_file, samples_nature,
-                                       signal_handler, test_flow_ids, test_flow_pkt_cnt, test_indices, test_labels,
-                                       tmp_filename, weight_of_samples, y_multiply, y_test, y_train)
-            else:
-                self.write_simple_analysis(x_test, x_train, features, max_leaf, res_file, samples_nature,
-                                           signal_handler, test_flow_ids, test_flow_pkt_cnt, test_indices, test_labels,
-                                           tmp_filename, weight_of_samples, y_multiply, y_test, y_train)
+
+        if grid_search:
+            self.write_grid_search(x_test, x_train, max_leaf, n_trees, samples_nature, signal_handler, test_flow_ids,
+                                   test_flow_pkt_cnt, test_indices, test_labels, tmp_filename, weight_of_samples,
+                                   y_multiply, y_test, y_train)
+        else:
+            self.write_simple_analysis(x_test, x_train, max_leaf, samples_nature, signal_handler, test_flow_ids,
+                                       test_flow_pkt_cnt, test_indices, test_labels, tmp_filename, weight_of_samples,
+                                       y_multiply, y_test, y_train)
 
         shutil.move(tmp_filename, filename)
         self.logger.info(f'Finished model analysis. Saved results to: {filename}')
         signal.signal(signal.SIGINT, original_sigint_handler)
         return []
 
-    def write_simple_analysis(self, x_test, x_train, features, max_leaf, res_file, samples_nature_test, signal_handler,
-                              flow_ids_test, flow_pkt_cnt_test, test_labels, test_label_names, tmp_filename,
-                              weight_of_samples, y_multiply_test, y_test, y_train):
-        self.logger.info(f'Writing grid search results to: {tmp_filename}')
-        print(
-            'depth;tree;no_feats;N_Leaves;Macro_f1_FL;Weighted_f1_FL;Micro_f1_FL;feats;pkt_macro_f1'
-            ';pkt_weighted_f1;flw_macro_f1;flw_weighted_f1;F1_macro;F1_weighted;num_samples;Macro_F1_PL'
-            ';Weighted_F1_PL;Micro_F1_PL;cl_report_FL;cl_report_PL',
-            file=res_file)
-        # register signal handler to delete file if code is not completed
-        signal.signal(signal.SIGINT, signal_handler)
-        n_tree =1
-        for leaf in max_leaf:
-            # Prepare a model for the given (depth, n_tree, feat)
-            model = RandomForestClassifier(n_estimators=n_tree, max_leaf_nodes=leaf, n_jobs=10, random_state=42,
-                                           bootstrap=False)
-            # Train (fit) the model with the data
-            model.fit(x_train[features], y_train, sample_weight=weight_of_samples)
-            # Infer (predict) the labels
-            y_pred = model.predict(x_test[features]).tolist()
-
-            # Obtain a generic classification report. We later drill down to flow and pkt level reports.
-            overall_class_report = classification_report(y_test, y_pred, labels=test_labels,
-                                                         target_names=test_label_names, output_dict=True)
-
-            overall_macro_f1 = overall_class_report['macro avg']['f1-score']
-            overall_weighted_f1 = overall_class_report['weighted avg']['f1-score']
-
-            pkt_class_report = get_pkt_class_report(y_pred, y_test, samples_nature_test, test_labels, test_label_names)
-            pkt_macro_f1 = pkt_class_report['macro avg']['f1-score']
-            pkt_weighted_f1 = pkt_class_report['weighted avg']['f1-score']
-
-            flow_class_report = get_flow_class_report(y_pred, y_test, samples_nature_test, test_labels,
-                                                      test_label_names)
-            flw_macro_f1 = flow_class_report['macro avg']['f1-score']
-            flw_weighted_f1 = flow_class_report['weighted avg']['f1-score']
-
-            (expanded_y_test,
-             expanded_y_pred,
-             expanded_weights,
-             expanded_flow_IDs) = extend_test_data_with_flow_level_results(y_test,
-                                                                           y_pred,
-                                                                           samples_nature_test,
-                                                                           y_multiply_test,
-                                                                           flow_pkt_cnt_test,
-                                                                           flow_ids_test)
-            FL_class_report = classification_report(expanded_y_test, expanded_y_pred, labels=test_labels,
-                                                    target_names=test_label_names, output_dict=True,
-                                                    sample_weight=expanded_weights)
-
-            macro_f1_FL = FL_class_report['macro avg']['f1-score']
-            weighted_f1_FL = FL_class_report['weighted avg']['f1-score']
-            micro_f1_FL = FL_class_report['accuracy']
-
-            PL_class_report = classification_report(expanded_y_test, expanded_y_pred, labels=test_labels,
-                                                    target_names=test_label_names, output_dict=True)
-
-            macro_f1_PL = PL_class_report['macro avg']['f1-score']
-            weighted_f1_PL = PL_class_report['weighted avg']['f1-score']
-            micro_f1_PL = PL_class_report['accuracy']
-
-            num_samples = len(expanded_y_test)
-
-
-            depth = [estimator.tree_.max_depth for estimator in model.estimators_]
-            print(str(depth) + ';' + str(n_tree) + ';' + str(len(features)) + ';' + str(leaf) + ";" + str(
-                macro_f1_FL) + ";" + str(weighted_f1_FL) + ";" + str(micro_f1_FL) + ";" + str(features)
-                  + ';' + str(pkt_macro_f1) + ';' + str(pkt_weighted_f1) + ';' + str(
-                flw_macro_f1) + ';' + str(flw_weighted_f1) + ';' + str(overall_macro_f1) + ';' + str(
-                overall_weighted_f1) + ';' + str(num_samples) + ';' + str(macro_f1_PL) + ';' + str(
-                weighted_f1_PL) + ';' + str(micro_f1_PL) + ';' + str(FL_class_report) + ';' + str(PL_class_report),
-                  file=res_file)
-
-
-    def write_grid_search(self, X_test, X_train, max_leaf, n_trees, res_file, samples_nature_test,
-                          signal_handler, flow_IDs_test, flow_pkt_cnt_test, test_labels, test_label_names, tmp_filename,
-                          weight_of_samples, y_multiply_test, y_test, y_train):
-        self.logger.info(f'Writing grid search results to: {tmp_filename}')
-        print(
-            'depth;tree;no_feats;N_Leaves;Macro_f1_FL;Weighted_f1_FL;Micro_f1_FL;feats;pkt_macro_f1'
-            ';pkt_weighted_f1;flw_macro_f1;flw_weighted_f1;F1_macro;F1_weighted;num_samples;Macro_F1_PL'
-            ';Weighted_F1_PL;Micro_F1_PL;cl_report_FL;cl_report_PL',
-            file=res_file)
-        # register signal handler to delete file if code is not completed
-        signal.signal(signal.SIGINT, signal_handler)
-        # FOR EACH (n_tree, leaf, feat)
-        for n_tree in n_trees:
+    def write_simple_analysis(self, x_test, x_train, max_leaf, samples_nature_test, signal_handler, flow_ids_test,
+                              flow_pkt_cnt_test, test_labels, test_label_names, tmp_filename, weight_of_samples,
+                              y_multiply_test, y_test, y_train):
+        with open(tmp_filename, "w") as res_file:
+            self.logger.info(f'Writing grid search results to: {tmp_filename}')
+            print(
+                'depth;tree;no_feats;N_Leaves;Macro_f1_FL;Weighted_f1_FL;Micro_f1_FL;feats;pkt_macro_f1'
+                ';pkt_weighted_f1;flw_macro_f1;flw_weighted_f1;F1_macro;F1_weighted;num_samples;Macro_F1_PL'
+                ';Weighted_F1_PL;Micro_F1_PL;cl_report_FL;cl_report_PL',
+                file=res_file)
+            # register signal handler to delete file if code is not completed
+            signal.signal(signal.SIGINT, signal_handler)
+            n_tree =1
+            feats = x_train.columns.values.tolist()
             for leaf in max_leaf:
-                # get feature orders to use
-                importance = get_feature_importance(n_tree, leaf, X_train, y_train, weight_of_samples)
-                m_feats = get_fewest_features(importance)
-                for feats in m_feats:
-                    # ToDo: extract method analyse_grid_point to share code with write_simple_analysis
-                    # Prepare a model for the given (depth, n_tree, feat)
-                    model = RandomForestClassifier(n_estimators=n_tree, max_leaf_nodes=leaf, n_jobs=10,
-                                                   random_state=42, bootstrap=False)
-                    # Train (fit) the model with the data
-                    model.fit(X_train[feats], y_train, sample_weight=weight_of_samples)
-                    # Infer (predict) the labels
-                    y_pred = model.predict(X_test[feats]).tolist()
+                # Prepare a model for the given (depth, n_tree, feat)
+                model = RandomForestClassifier(n_estimators=n_tree, max_leaf_nodes=leaf, n_jobs=10, random_state=42,
+                                               bootstrap=False)
+                # Train (fit) the model with the data
+                model.fit(x_train[feats], y_train, sample_weight=weight_of_samples)
+                # Infer (predict) the labels
+                y_pred = model.predict(x_test[feats]).tolist()
 
-                    #Obtain a generic classification report. We later drill down to flow and pkt level reports.
-                    overall_class_report = classification_report(y_test, y_pred, labels=test_labels,
-                                                                 target_names=test_label_names, output_dict=True)
+                # Obtain a generic classification report. We later drill down to flow and pkt level reports.
+                overall_class_report = classification_report(y_test, y_pred, labels=test_labels,
+                                                             target_names=test_label_names, output_dict=True)
 
-                    overall_macro_f1 = overall_class_report['macro avg']['f1-score']
-                    overall_weighted_f1 = overall_class_report['weighted avg']['f1-score']
+                overall_macro_f1 = overall_class_report['macro avg']['f1-score']
+                overall_weighted_f1 = overall_class_report['weighted avg']['f1-score']
 
-                    pkt_class_report = get_pkt_class_report(y_pred, y_test, samples_nature_test, test_labels, test_label_names)
-                    pkt_macro_f1 = pkt_class_report['macro avg']['f1-score']
-                    pkt_weighted_f1 = pkt_class_report['weighted avg']['f1-score']
+                pkt_class_report = get_pkt_class_report(y_pred, y_test, samples_nature_test, test_labels, test_label_names)
+                pkt_macro_f1 = pkt_class_report['macro avg']['f1-score']
+                pkt_weighted_f1 = pkt_class_report['weighted avg']['f1-score']
 
-                    flow_class_report = get_flow_class_report(y_pred, y_test, samples_nature_test, test_labels, test_label_names)
-                    flw_macro_f1 = flow_class_report['macro avg']['f1-score']
-                    flw_weighted_f1 = flow_class_report['weighted avg']['f1-score']
+                flow_class_report = get_flow_class_report(y_pred, y_test, samples_nature_test, test_labels,
+                                                          test_label_names)
+                flw_macro_f1 = flow_class_report['macro avg']['f1-score']
+                flw_weighted_f1 = flow_class_report['weighted avg']['f1-score']
 
-                    # The result of the flow level inference must be applied to the consecutive packets.
-                    # ToDo: use true or test consistently to avoid confusions.
-                    #  Be consistent with the naming in the paper.
-                    (expanded_y_test,
-                     expanded_y_pred,
-                     expanded_weights,
-                     expanded_flow_IDs) = extend_test_data_with_flow_level_results(y_test,
-                                                                                   y_pred,
-                                                                                   samples_nature_test,
-                                                                                   y_multiply_test,
-                                                                                   flow_pkt_cnt_test,
-                                                                                   flow_IDs_test)
-                    num_samples = len(expanded_y_test)
+                (expanded_y_test,
+                 expanded_y_pred,
+                 expanded_weights,
+                 expanded_flow_IDs) = extend_test_data_with_flow_level_results(y_test,
+                                                                               y_pred,
+                                                                               samples_nature_test,
+                                                                               y_multiply_test,
+                                                                               flow_pkt_cnt_test,
+                                                                               flow_ids_test)
+                num_samples = len(expanded_y_test)
 
-                    FL_class_report = classification_report(expanded_y_test, expanded_y_pred, labels=test_labels,
-                                                            target_names=test_label_names, output_dict=True,
-                                                            sample_weight=expanded_weights)
+                FL_class_report = classification_report(expanded_y_test, expanded_y_pred, labels=test_labels,
+                                                        target_names=test_label_names, output_dict=True,
+                                                        sample_weight=expanded_weights)
 
-                    macro_f1_FL = FL_class_report['macro avg']['f1-score']
-                    weighted_f1_FL = FL_class_report['weighted avg']['f1-score']
-                    # try:
-                    #     micro_f1_FL = FL_class_report['micro avg']['f1-score']
-                    # except:
-                    # ToDo: check why was the try/except block needed. Remove above-commented code otherwise.
-                    micro_f1_FL = FL_class_report['accuracy']
+                macro_f1_FL = FL_class_report['macro avg']['f1-score']
+                weighted_f1_FL = FL_class_report['weighted avg']['f1-score']
+                micro_f1_FL = FL_class_report['accuracy']
 
-                    PL_class_report = classification_report(expanded_y_test, expanded_y_pred, labels=test_labels,
-                                                            target_names=test_label_names, output_dict=True)
+                PL_class_report = classification_report(expanded_y_test, expanded_y_pred, labels=test_labels,
+                                                        target_names=test_label_names, output_dict=True)
 
-                    macro_f1_PL = PL_class_report['macro avg']['f1-score']
-                    weighted_f1_PL = PL_class_report['weighted avg']['f1-score']
-                    # try:
-                    #     micro_f1_PL = PL_class_report['micro avg']['f1-score']
-                    # except:
-                    # ToDo: check why was the try/except block needed. Remove above-commented code otherwise.
-                    micro_f1_PL = PL_class_report['accuracy']
+                macro_f1_PL = PL_class_report['macro avg']['f1-score']
+                weighted_f1_PL = PL_class_report['weighted avg']['f1-score']
+                micro_f1_PL = PL_class_report['accuracy']
 
-                    depth = [estimator.tree_.max_depth for estimator in model.estimators_]
-                    # The metric on which we select the best model is then the macro_f1_FL
-                    # ToDo: evaluate model while searching, and keep in memory the best found so far. Save the others as CSV files just in case.
-                    print(str(depth) + ';' + str(n_tree) + ';' + str(len(feats)) + ';' + str(leaf) + ";" + str(
-                          macro_f1_FL) + ";" + str(weighted_f1_FL) + ";" + str(micro_f1_FL) + ";" + str(feats)
-                          + ';' + str(pkt_macro_f1) + ';' + str(pkt_weighted_f1) + ';' + str(
-                          flw_macro_f1) + ';' + str(flw_weighted_f1) + ';' + str(overall_macro_f1) + ';' + str(
-                          overall_weighted_f1) + ';' + str(num_samples) + ';' + str(macro_f1_PL) + ';' + str(
-                          weighted_f1_PL) + ';' + str(micro_f1_PL) + ';' + str(FL_class_report) + ';' + str(PL_class_report),
-                          file=res_file)
+                depth = [estimator.tree_.max_depth for estimator in model.estimators_]
+                print(str(depth) + ';' + str(n_tree) + ';' + str(len(feats)) + ';' + str(leaf) + ";" + str(
+                    macro_f1_FL) + ";" + str(weighted_f1_FL) + ";" + str(micro_f1_FL) + ";" + str(feats)
+                      + ';' + str(pkt_macro_f1) + ';' + str(pkt_weighted_f1) + ';' + str(
+                    flw_macro_f1) + ';' + str(flw_weighted_f1) + ';' + str(overall_macro_f1) + ';' + str(
+                    overall_weighted_f1) + ';' + str(num_samples) + ';' + str(macro_f1_PL) + ';' + str(
+                    weighted_f1_PL) + ';' + str(micro_f1_PL) + ';' + str(FL_class_report) + ';' + str(PL_class_report),
+                      file=res_file)
+
+
+    def write_grid_search(self, x_test, x_train, max_leaf, n_trees, samples_nature_test, signal_handler, flow_ids_test,
+                          flow_pkt_cnt_test, test_labels, test_label_names, tmp_filename, weight_of_samples,
+                          y_multiply_test, y_test, y_train):
+        with open(tmp_filename, "w") as res_file:
+            self.logger.info(f'Writing grid search results to: {tmp_filename}')
+            print(
+                'depth;tree;no_feats;N_Leaves;Macro_f1_FL;Weighted_f1_FL;Micro_f1_FL;feats;pkt_macro_f1'
+                ';pkt_weighted_f1;flw_macro_f1;flw_weighted_f1;F1_macro;F1_weighted;num_samples;Macro_F1_PL'
+                ';Weighted_F1_PL;Micro_F1_PL;cl_report_FL;cl_report_PL',
+                file=res_file)
+            # register signal handler to delete file if code is not completed
+            signal.signal(signal.SIGINT, signal_handler)
+            # FOR EACH (n_tree, leaf, feat)
+            for n_tree in n_trees:
+                for leaf in max_leaf:
+                    # get feature orders to use
+                    m_feats = get_feature_importance_sets(n_tree, leaf, x_train, y_train, weight_of_samples)
+                    for feats in m_feats:
+                        # ToDo: extract method analyse_grid_point to share code with write_simple_analysis
+                        # Prepare a model for the given (depth, n_tree, feat)
+                        model = RandomForestClassifier(n_estimators=n_tree, max_leaf_nodes=leaf, n_jobs=10,
+                                                       random_state=42, bootstrap=False)
+                        # Train (fit) the model with the data
+                        model.fit(x_train[feats], y_train, sample_weight=weight_of_samples)
+                        # Infer (predict) the labels
+                        y_pred = model.predict(x_test[feats]).tolist()
+
+                        #Obtain a generic classification report. We later drill down to flow and pkt level reports.
+                        overall_class_report = classification_report(y_test, y_pred, labels=test_labels,
+                                                                     target_names=test_label_names, output_dict=True)
+
+                        overall_macro_f1 = overall_class_report['macro avg']['f1-score']
+                        overall_weighted_f1 = overall_class_report['weighted avg']['f1-score']
+
+                        pkt_class_report = get_pkt_class_report(y_pred, y_test, samples_nature_test, test_labels, test_label_names)
+                        pkt_macro_f1 = pkt_class_report['macro avg']['f1-score']
+                        pkt_weighted_f1 = pkt_class_report['weighted avg']['f1-score']
+
+                        flow_class_report = get_flow_class_report(y_pred, y_test, samples_nature_test, test_labels, test_label_names)
+                        flw_macro_f1 = flow_class_report['macro avg']['f1-score']
+                        flw_weighted_f1 = flow_class_report['weighted avg']['f1-score']
+
+                        # The result of the flow level inference must be applied to the consecutive packets.
+                        # ToDo: use true or test consistently to avoid confusions.
+                        #  Be consistent with the naming in the paper.
+                        (expanded_y_test,
+                         expanded_y_pred,
+                         expanded_weights,
+                         expanded_flow_IDs) = extend_test_data_with_flow_level_results(y_test,
+                                                                                       y_pred,
+                                                                                       samples_nature_test,
+                                                                                       y_multiply_test,
+                                                                                       flow_pkt_cnt_test,
+                                                                                       flow_ids_test)
+                        num_samples = len(expanded_y_test)
+
+                        FL_class_report = classification_report(expanded_y_test, expanded_y_pred, labels=test_labels,
+                                                                target_names=test_label_names, output_dict=True,
+                                                                sample_weight=expanded_weights)
+
+                        macro_f1_FL = FL_class_report['macro avg']['f1-score']
+                        weighted_f1_FL = FL_class_report['weighted avg']['f1-score']
+                        # try:
+                        #     micro_f1_FL = FL_class_report['micro avg']['f1-score']
+                        # except:
+                        # ToDo: check why was the try/except block needed. Remove above-commented code otherwise.
+                        micro_f1_FL = FL_class_report['accuracy']
+
+                        PL_class_report = classification_report(expanded_y_test, expanded_y_pred, labels=test_labels,
+                                                                target_names=test_label_names, output_dict=True)
+
+                        macro_f1_PL = PL_class_report['macro avg']['f1-score']
+                        weighted_f1_PL = PL_class_report['weighted avg']['f1-score']
+                        # try:
+                        #     micro_f1_PL = PL_class_report['micro avg']['f1-score']
+                        # except:
+                        # ToDo: check why was the try/except block needed. Remove above-commented code otherwise.
+                        micro_f1_PL = PL_class_report['accuracy']
+
+                        depth = [estimator.tree_.max_depth for estimator in model.estimators_]
+                        # The metric on which we select the best model is then the macro_f1_FL
+                        # ToDo: evaluate model while searching, and keep in memory the best found so far. Save the others as CSV files just in case.
+                        print(str(depth) + ';' + str(n_tree) + ';' + str(len(feats)) + ';' + str(leaf) + ";" + str(
+                              macro_f1_FL) + ";" + str(weighted_f1_FL) + ";" + str(micro_f1_FL) + ";" + str(feats)
+                              + ';' + str(pkt_macro_f1) + ';' + str(pkt_weighted_f1) + ';' + str(
+                              flw_macro_f1) + ';' + str(flw_weighted_f1) + ';' + str(overall_macro_f1) + ';' + str(
+                              overall_weighted_f1) + ';' + str(num_samples) + ';' + str(macro_f1_PL) + ';' + str(
+                              weighted_f1_PL) + ';' + str(micro_f1_PL) + ';' + str(FL_class_report) + ';' + str(PL_class_report),
+                              file=res_file)
 
     #
     def analyze_model_n_packets(self, npkts, outfile, force=False, grid_search=False):
@@ -346,7 +350,7 @@ class ModelAnalyzer(ABC):
     def load_cluster_data(self, cluster_data_series):
         classes = list(set(cluster_data_series['Class List']))
         classes.append('Other')
-        self.logger.debug(f'Cluster ID: {cluster_data_series["Cluster"].values.tolist()}', classes)
+        self.logger.debug(f'Cluster ID: {cluster_data_series["Cluster"]}', classes)
 
         classes_df = pd.DataFrame(classes, columns=['class'])
         classes_df = classes_df.reset_index()
@@ -450,31 +454,43 @@ class TONModelAnalyzer(ModelAnalyzer):
         return train_data, test_data
 
 
-def get_feature_importance(n_tree, max_leaf, x_train, y_train, weight_of_samples):
+def get_feature_importance_sets(n_tree, max_leaf, x_train, y_train, weight_of_samples):
     """
-    Function to Fit model based on optimal values of depth and number of estimators and use it
-    to compute feature importance for all the features.
+        Generate feature importance sets in descending order using a trained Random Forest model.
+
+        This function trains a RandomForestClassifier with the provided data and parameters,
+        extracts the feature importances, and returns the feature names sorted by their
+        importance in descending order. It produces cumulative subsets of feature names
+        such that each set includes the most important features up to that rank.
+
+        Arguments:
+        n_tree: int
+            Number of trees in the RandomForestClassifier.
+        max_leaf: int
+            Maximum number of leaf nodes for each tree in the RandomForestClassifier.
+        x_train: np.ndarray
+            Training features, where each row represents a sample and each column a feature.
+        y_train: np.ndarray
+            Training labels corresponding to each sample in the training data.
+        weight_of_samples: np.ndarray
+            Sample weights to account for unequal importance or representativity of samples.
+
+        Returns:
+        List[List[str]]
+            A list of lists of strings, where each nested list contains a cumulative subset of feature names sorted by importance.
     """
     rf_opt = RandomForestClassifier(n_estimators=n_tree, max_leaf_nodes=max_leaf, random_state=42, bootstrap=False,
                                     n_jobs=10)
     rf_opt.fit(x_train, y_train, sample_weight=weight_of_samples)
-    feature_importance = pd.DataFrame(rf_opt.feature_importances_)
-    feature_importance.index = x_train.columns
-    feature_importance = feature_importance.sort_values(by=list(feature_importance.columns), axis=0, ascending=False)
 
-    return feature_importance
+    # Get the indices that would sort the feature_importances_ array in descending order
+    sorted_indices = np.argsort(rf_opt.feature_importances_)[::-1]
 
+    # Sort both arrays using the sorted indices
+    sorted_feature_importances = rf_opt.feature_importances_[sorted_indices]
+    sorted_feature_names = rf_opt.feature_names_in_[sorted_indices].tolist()
 
-def get_fewest_features(importance):
-    """
-    Function to Fit model based on optimal values of depth and number of estimators and feature importance
-    to find the fewest possible features to exceed the previously attained score with all selected features
-    """
-    sorted_feature_names = importance.index
-    features = []
-    for f in range(1, len(sorted_feature_names) + 1):
-        features.append(sorted_feature_names[0:f])
-    return features
+    return [sorted_feature_names[:i] for i in range(1, len(sorted_feature_names) + 1)]
 
 
 def get_pkt_class_report(y_pred, y_test, sample_nature, unique_labels, array_of_indices):
