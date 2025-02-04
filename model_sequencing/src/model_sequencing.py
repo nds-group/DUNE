@@ -9,10 +9,12 @@ import numpy as np
 import gurobipy 
 import logging
 from setup_logger import logger
-'''
-Function to assign related values to each packet to specify if it will run packet-level or flow-level classification
-'''
+
 def assign_sample_nature(row):
+    '''
+    Function to assign related values to each packet to specify if it will 
+    run packet-level or flow-level classification
+    '''
     if (row["Min Packet Length"] == -1 and
         row["Max Packet Length"] == -1 and
         row["Flow IAT Min"] == -1 and
@@ -21,11 +23,12 @@ def assign_sample_nature(row):
     else:
         return "flw"
     
-'''
-Function to get the list of clusters, classes and list of clusters corresponding to the 
-given classes.
-'''
+
 def get_cluster_details(cluster_info_df):
+    '''
+    Function to get the list of clusters, classes and 
+    list of clusters corresponding to the given classes.
+    '''
     cluster_list = []
     all_classes_in_clusters = []
     cluster_info_all_classes = []
@@ -39,10 +42,11 @@ def get_cluster_details(cluster_info_df):
         cluster_no = cluster_no + 1
     return cluster_list, all_classes_in_clusters, cluster_info_all_classes
 
-'''
-Function to get the dataframe that holds the information of clusters sequenced
-'''
+
 def get_final_cluster_info(clusters_best_model_info, logger):
+    '''
+    Function to get the dataframe that holds the information of clusters sequenced
+    '''
     # Create the df
     seq_cluster_info = clusters_best_model_info.copy()
     seq_cluster_info = seq_cluster_info[['Cluster', 'Class List', 'Macro_f1_FL_With_Others']]
@@ -73,10 +77,11 @@ def get_final_cluster_info(clusters_best_model_info, logger):
     logging.getLogger(f'{use_case}').info(f'Sequenced Clusters information: \n {seq_cluster_info_w_others}')
     return seq_cluster_info_w_others
 
-'''
-Function to get the test labels
-'''
+
 def get_test_labels_others(IoT_Test, classes, classes_df):
+    '''
+    Function to get the test labels
+    '''
     array_of_indices = []
     unique_labels = IoT_Test["Label_NEW"].unique()
     # unique_labels = IoT_Test["Label"].unique()
@@ -85,20 +90,22 @@ def get_test_labels_others(IoT_Test, classes, classes_df):
         array_of_indices.append(index)
     return unique_labels, array_of_indices
 
-'''
-Function to get train and test data for the model
-'''
-def get_x_y_flow_others(Dataset, feats, classes):    
+
+def get_x_y_flow_others(Dataset, feats, classes):   
+    '''
+    Function to get train and test data for the model
+    ''' 
     X = Dataset[feats]
     y = Dataset['Label_NEW'].replace(classes, range(len(classes)))
     y_all = Dataset['Label']
     sample_nature = Dataset['sample_nature']
     return X, y, sample_nature, y_all
 
-"""
-Function to calculate the score of the model in terms of Flow-Level metric
-"""
+
 def expand_rows_and_get_scores_others(y_true, y_pred, y_test_ALL, sample_nature, multiply, test_flow_pkt_cnt, test_flow_IDs, unique_labels, array_of_indices):
+    """
+    Function to calculate the score of the model in terms of Flow-Level metric
+    """
     expanded_y_true = []
     expanded_y_pred = []
     expanded_y_true_all = []
@@ -149,11 +156,11 @@ def expand_rows_and_get_scores_others(y_true, y_pred, y_test_ALL, sample_nature,
     
     return num_samples, macro_f1_PL, weighted_f1_PL, micro_f1_PL, cl_report_PL, macro_f1_FL, weighted_f1_FL, micro_f1_FL, c_report_FL, expanded_y_true, expanded_y_pred, expanded_weights, expanded_y_true_all
 
-"""
-Function to train RF model
-"""
-def analyze_model(use_case, classes_filter, npkts, depth, n_tree, max_leaves, feats, classes, classes_df, flow_counts_test_file_path, flow_counts_train_file_path, train_data_dir_path, test_data_dir_path):    
 
+def analyze_model(use_case, classes_filter, npkts, depth, n_tree, max_leaves, feats, classes, classes_df, flow_counts_test_file_path, flow_counts_train_file_path, train_data_dir_path, test_data_dir_path):    
+    """
+    Function to train RF model
+    """
     if(use_case == 'UNSW'):
         # Load Train and Test data
         train_data = pd.read_csv(train_data_dir_path+"/train_data_"+str(npkts)+".csv")
@@ -245,10 +252,11 @@ def analyze_model(use_case, classes_filter, npkts, depth, n_tree, max_leaves, fe
                            
     return cl_report_FL, expanded_y_true, expanded_y_pred, expanded_weights, expanded_y_true_all
     
-"""
-Function to get the confusion matrix of the models of clusters
-"""
+
 def get_confusion_matrix(use_case, classes_filter, cluster_list, all_classes_in_clusters, clusters_best_model_info, flow_counts_test_file_path, flow_counts_train_file_path, train_data_dir_path, test_data_dir_path):
+    """
+    Function to get the confusion matrix of the models of clusters
+    """
     cm_matrix = pd.DataFrame()
     cm_matrix['Classes'] = [i for i in all_classes_in_clusters]
     cm_matrix_cluster = pd.DataFrame()
@@ -311,10 +319,11 @@ def get_confusion_matrix(use_case, classes_filter, cluster_list, all_classes_in_
             
     return cm_matrix, cm_matrix_cluster
 
-"""
-Function to normalize the confusion matrix
-"""
+
 def normalize_confusion_matrix(cm_matrix_cluster, n_of_clusters):
+    """
+    Function to normalize the confusion matrix
+    """
     cm_matrix_cluster_normalized_df = pd.DataFrame()
     cm_matrix_cluster_normalized_df['Clusters'] = cm_matrix_cluster['Clusters'].to_list()
 
@@ -332,10 +341,11 @@ def normalize_confusion_matrix(cm_matrix_cluster, n_of_clusters):
     
     return cm_matrix_cluster_normalized_df, cluster_list_str
 
-'''
-Function to formulate and run TSP to find the optimal sequence of the clusters 
-'''
+
 def TSP_MTZ_Formulation(n, costMatrix_FP, cost_F1, logger):
+    '''
+    Function to formulate and run TSP to find the optimal sequence of the clusters 
+    '''
     #%
     # 1 | initialize sets and notations
     N = [i for i in range(1,n+1)]
@@ -392,10 +402,11 @@ def TSP_MTZ_Formulation(n, costMatrix_FP, cost_F1, logger):
 
     return solutionObjective, solutionGap, tourRepo, completeResults
 
-'''
-Function to get the sequence of the sub-models obtained by the TSP
-'''
+
 def get_cluster_seq(tourRepo, n_of_clusters, logger):
+    '''
+    Function to get the sequence of the sub-models obtained by the TSP
+    '''
     store_cluster_occ = {}
     for i in range(0, n_of_clusters):
         store_cluster_occ[i] = 0
