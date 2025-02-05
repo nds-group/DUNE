@@ -37,8 +37,8 @@ def __run_analysis(n_point, cluster_id):
     f_name = f"{results_dir_path}/unsw_models_{n_point}pkts_PF_WB_20CL_Cluster{cluster_id}.csv"
     model_analyzer = None
     if use_case == 'UNSW':
-        model_analyzer = UNSWModelAnalyzer(train_data_dir_path, test_data_dir_path, flow_counts_file_path,
-                                           classes_filter, cluster_data_file_path, logger)
+        model_analyzer = UNSWModelAnalyzer(train_data_dir_path, test_data_dir_path, flow_counts_train_file_path,
+                                           flow_counts_test_file_path, classes_filter, cluster_data_file_path, logger)
     elif use_case == 'TON-IOT':
         model_analyzer = TONModelAnalyzer(train_data_dir_path, test_data_dir_path, flow_counts_train_file_path,
                                           flow_counts_test_file_path, classes_filter, cluster_data_file_path, logger)
@@ -74,11 +74,10 @@ def main():
         classes = cluster_info['Class List'].sum()
         classes.sort()
 
+        flow_pkt_counts = pd.read_csv(flow_counts_test_file_path)
         if use_case == 'TON-IOT':
-            flow_pkt_counts = pd.read_csv(flow_counts_test_file_path)
             support = flow_pkt_counts['type'].value_counts().loc[classes].sort_index()
         else:
-            flow_pkt_counts = pd.read_csv(flow_counts_file_path)
             support = flow_pkt_counts['label'].value_counts().loc[classes].sort_index()
 
         logger.info("Selecting the best models for each cluster...")
@@ -127,13 +126,8 @@ if __name__ == '__main__':
     train_data_dir_path = config[use_case]['train_data_dir_path']
     test_data_dir_path = config[use_case]['test_data_dir_path']
     inference_points_list = ast.literal_eval(config[use_case]['inference_point_list'])
-    if use_case == 'UNSW':
-        flow_counts_file_path = config[use_case]['flow_counts_file_path']
-    elif use_case == 'TON-IOT':
-        flow_counts_test_file_path = config[use_case]['flow_counts_test_file_path']
-        flow_counts_train_file_path = config[use_case]['flow_counts_train_file_path']
-    else:
-        raise ValueError("use_case can only be 'UNSW' or 'TON-IOT'")
+    flow_counts_test_file_path = config[use_case]['flow_counts_test_file_path']
+    flow_counts_train_file_path = config[use_case]['flow_counts_train_file_path']
 
     results_dir_path = config[use_case]['results_dir_path']
     classes_filter = ast.literal_eval(config[use_case]['classes_filter'])

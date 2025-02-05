@@ -57,12 +57,14 @@ def extend_test_data_with_flow_level_results(y_test, y_pred, samples_nature_test
 
 
 class ModelAnalyzer(ABC):
-    def __init__(self, train_data_folder_path, test_data_folder_path, classes_filter,
-                 cluster_data_file_path, logger):
+    def __init__(self, train_data_folder_path, test_data_folder_path, flow_counts_train_file_path, 
+                 flow_counts_test_file_path, classes_filter, cluster_data_file_path, logger):
         self.logger = logger
         self.cluster_data_file_path = cluster_data_file_path
         self.train_data_folder_path = train_data_folder_path
         self.test_data_folder_path = test_data_folder_path
+        self.flow_counts_train_file_path = flow_counts_train_file_path
+        self.flow_counts_test_file_path = flow_counts_test_file_path
         self.classes_filter = classes_filter
         self.feature_list = None
         self.classes = None
@@ -87,8 +89,12 @@ class ModelAnalyzer(ABC):
             train_data = train_data.loc[train_data['Label'].isin(classes_filter)]
             test_data = test_data.loc[test_data['Label'].isin(classes_filter)]
 
+        # ToDo: this is specific and should somehow go into the child classes implementation. How to best do it?
+        if 'File' in train_data.columns:
+            train_data["Flow ID"] = train_data['Flow ID'] + ' ' + train_data['File']
         # Map flow packet counts for train and test sets
         train_data["pkt_count"] = train_data["Flow ID"].map(flow_counts_train)
+        # For UNSW this is fine because no multiple files exist, i.e., the test data comes from a single file.
         test_data["pkt_count"] = test_data["Flow ID"].map(flow_counts_test)
 
         # Shuffle and clean data
@@ -235,7 +241,9 @@ class ModelAnalyzer(ABC):
             # register signal handler to delete file if code is not completed
             signal.signal(signal.SIGINT, signal_handler)
             # FOR EACH (n_tree, leaf, feat)
+            # ToDo: make n_trees a global Int const
             for n_tree in n_trees:
+                # ToDo: make max_leaf a global list const
                 for leaf in max_leaf:
                     # get feature orders to use
                     m_feats = get_feature_importance_sets(n_tree, leaf, x_train, y_train, weight_of_samples)
@@ -312,7 +320,6 @@ class ModelAnalyzer(ABC):
                               weighted_f1_PL) + ';' + str(micro_f1_PL) + ';' + str(FL_class_report) + ';' + str(PL_class_report),
                               file=res_file)
 
-    #
     def analyze_model_n_packets(self, npkts, outfile, force=False, grid_search=False):
         """Function for grid search on hyperparameters, features and models"""
         if not force:
@@ -330,6 +337,7 @@ class ModelAnalyzer(ABC):
 
         weight_of_samples = list(train_data['weight'])
 
+        # TODO: drop intermediate vars and pass test/train data vars to analyze_models method
         y_multiply = test_data['multiply']
         test_flow_pkt_cnt = test_data['pkt_count'].to_list()
         test_flow_IDs = test_data['Flow ID'].to_list()
@@ -359,23 +367,7 @@ class ModelAnalyzer(ABC):
         self.feature_list = feature_list
         self.classes = classes
         self.classes_df = classes_df
-
-    @abstractmethod
-    def get_test_labels(self, test_data):
-        pass
-
-    @abstractmethod
-    def get_x_y_flow(self, dataset, feats):
-        pass
-
-
-class UNSWModelAnalyzer(ModelAnalyzer):
-    def __init__(self, train_data_folder_path, test_data_folder_path, flow_counts_file_path, classes_filter,
-                 cluster_data_file_path, logger):
-        super().__init__(train_data_folder_path, test_data_folder_path, classes_filter,
-                         cluster_data_file_path, logger)
-        self.flow_counts_file_path = flow_counts_file_path
-
+    
     def get_test_labels(self, test_data):
         array_of_indices = []
         unique_labels = test_data["Label_NEW"].unique()
@@ -385,29 +377,38 @@ class UNSWModelAnalyzer(ModelAnalyzer):
         return unique_labels, array_of_indices
 
     def get_x_y_flow(self, dataset, feats):
-        X = dataset[feats]
+        x = dataset[feats]
         y = dataset['Label_NEW'].replace(self.classes, range(len(self.classes))).values.tolist()
         sample_nature = dataset['sample_nature']
-        return X, y, sample_nature
+        return x, y, sample_nature
+
+
+class UNSWModelAnalyzer(ModelAnalyzer):
+    def __init__(self, train_data_folder_path, test_data_folder_path, flow_counts_train_file_path,
+                 flow_counts_test_file_path, classes_filter,
+                 cluster_data_file_path, logger):
+        super().__init__(train_data_folder_path, test_data_folder_path, flow_counts_train_file_path, 
+                         flow_counts_test_file_path, classes_filter, cluster_data_file_path, logger)
 
     def prepare_data(self, npkts, classes_filter=None):
-        # Load flow counts for test and prepare flow count mapping
-        flow_counts = pd.read_csv(self.flow_counts_file_path)
-        flow_count_dict = flow_counts.set_index("flow.id")["count"].to_dict()
+        # Load train and test flow count files
+        usecols = ['Flow ID', 'packet_count', 'File']
+        flow_counts_train = pd.read_csv(self.flow_counts_train_file_path, usecols=usecols)
+        flow_counts_test = pd.read_csv(self.flow_counts_test_file_path)
+
+        # Prepare flow packet counts mapping dictionaries
+        flow_count_dict_test = flow_counts_test.set_index("flow.id")["count"].to_dict()
+        flow_counts_train['Flow ID'] = flow_counts_train['Flow ID'] + ' ' + flow_counts_train['File']
+        flow_counts_train = flow_counts_train.drop_duplicates(subset=['Flow ID'], keep='first')
+        flow_count_dict_train = flow_counts_train.set_index("Flow ID")["packet_count"].to_dict()
 
         # Prepare train and test file paths
         train_file = f"{self.train_data_folder_path}/train_data_{npkts}.csv"
         test_file = f"{self.test_data_folder_path}/16-10-05.pcap.txt_{npkts}_pkts.csv"
 
-        # Map training file counts
-        packet_data = pd.read_csv(f'{self.train_data_folder_path}/UNSW_train_ALL_PKT_DATE.csv',
-                                  usecols=['Flow ID', 'packet_count', 'File'])
-        packet_data = packet_data.drop_duplicates(subset=['Flow ID','File'], keep='first')
-        flow_count_dict_train = packet_data.set_index("Flow ID")["packet_count"].to_dict()
-
         # Call base method to perform common steps
         train_data, test_data = self._prepare_data(npkts, classes_filter, train_file, test_file, flow_count_dict_train,
-                                                   flow_count_dict)
+                                                   flow_count_dict_test)
         return train_data, test_data
 
 
@@ -415,24 +416,9 @@ class TONModelAnalyzer(ModelAnalyzer):
     def __init__(self, train_data_folder_path, test_data_folder_path, flow_counts_train_file_path,
                  flow_counts_test_file_path, classes_filter,
                  cluster_data_file_path, logger):
-        super().__init__(train_data_folder_path, test_data_folder_path, classes_filter,
+        super().__init__(train_data_folder_path, test_data_folder_path, 
+                         flow_counts_train_file_path, flow_counts_test_file_path,classes_filter,
                          cluster_data_file_path, logger)
-        self.flow_counts_train_file_path = flow_counts_train_file_path
-        self.flow_counts_test_file_path = flow_counts_test_file_path
-
-    def get_test_labels(self, IoT_Test):
-        array_of_indices = []
-        unique_labels = IoT_Test["Label_NEW"].unique()
-        for lab in unique_labels:
-            index = self.classes_df[self.classes_df['class'] == lab].index.values[0]
-            array_of_indices.append(index)
-        return unique_labels, array_of_indices
-
-    def get_x_y_flow(self, dataset, feats):
-        X = dataset[feats]
-        y = dataset['Label_NEW'].replace(self.classes, range(len(self.classes))).values.tolist()
-        sample_nature = dataset['sample_nature']
-        return X, y, sample_nature
 
     def prepare_data(self, npkts, classes_filter=None):
         # Load train and test flow count files
@@ -478,6 +464,7 @@ def get_feature_importance_sets(n_tree, max_leaf, x_train, y_train, weight_of_sa
         List[List[str]]
             A list of lists of strings, where each nested list contains a cumulative subset of feature names sorted by importance.
     """
+    # ToDo: check that the importance analysis evaluates all existing features and not only the features set provided by the SPP.
     rf_opt = RandomForestClassifier(n_estimators=n_tree, max_leaf_nodes=max_leaf, random_state=42, bootstrap=False,
                                     n_jobs=10)
     rf_opt.fit(x_train, y_train, sample_weight=weight_of_samples)
