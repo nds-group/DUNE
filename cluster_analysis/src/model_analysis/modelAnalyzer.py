@@ -91,10 +91,6 @@ class ModelAnalyzer(ABC):
         train_data["pkt_count"] = train_data["Flow ID"].map(flow_counts_train)
         test_data["pkt_count"] = test_data["Flow ID"].map(flow_counts_test)
 
-        # Assign 'multiply' column based on the conditions.
-        test_data['sample_nature'] = train_data.apply(assign_sample_nature, axis=1)
-        test_data['multiply'] = np.where(test_data['sample_nature']=='pkt', 1, test_data['pkt_count'] - npkts)
-
         # Shuffle and clean data
         train_data = train_data.sample(frac=1, random_state=42).dropna(subset=['srcport', 'dstport'])
         test_data = test_data.sample(frac=1, random_state=42).dropna(subset=['srcport', 'dstport'])
@@ -110,6 +106,9 @@ class ModelAnalyzer(ABC):
         # Assign 'sample_nature' and 'weight' columns
         train_data['sample_nature'] = train_data.apply(assign_sample_nature, axis=1)
         test_data['sample_nature'] = test_data.apply(assign_sample_nature, axis=1)
+
+        # Assign 'multiply' column based on the conditions.
+        test_data['multiply'] = np.where(test_data['sample_nature']=='pkt', 1, test_data['pkt_count'] - npkts)
 
         train_data['weight'] = np.where(train_data['sample_nature'] == 'flw',
                                         (train_data['pkt_count'] - npkts + 1) / train_data['pkt_count'],
