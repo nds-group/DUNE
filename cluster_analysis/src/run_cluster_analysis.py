@@ -26,7 +26,11 @@ def literal_converter(val):
 def run_analysis(input_data):
     n_point = input_data[0]
     cluster_id = input_data[1]
-    return __run_analysis(n_point, cluster_id)
+    try:
+        return __run_analysis(n_point, cluster_id)
+    except Exception as e:
+        logger.error(f"An error occurred: {e}")
+        return []
 
 def __run_analysis(n_point, cluster_id):
     logger.info(f"Starting analysis of: Cluster id: {cluster_id}, npoint {n_point}")
@@ -58,9 +62,6 @@ def main():
             pool.close()
         except KeyboardInterrupt:
             logger.error("Caught KeyboardInterrupt, terminating workers")
-            pool.terminate()
-        except Exception as e:
-            logger.error(f"An error occurred: {e}")
             pool.terminate()
         # wait for all issued task to complete
         pool.join()
