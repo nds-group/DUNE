@@ -121,9 +121,9 @@ class ModelAnalyzer(ABC):
                                         1 / train_data['pkt_count'])
         return train_data, test_data
 
-    def analyze_models(self, features, n_trees, x_train, y_train, x_test, y_test, samples_nature, y_multiply,
-                       test_flow_pkt_cnt, test_flow_ids, max_leaf, test_labels, test_indices, filename,
-                       weight_of_samples, grid_search=False):
+    def analyze_models(self, n_trees, x_train, y_train, x_test, y_test, samples_nature, y_multiply, test_flow_pkt_cnt,
+                       test_flow_ids, max_leaf, test_labels, test_indices, filename, weight_of_samples,
+                       grid_search=False):
         # open file to save output of analysis
         root = os.path.splitext(filename)[0]
         extension = os.path.splitext(filename)[1]
@@ -341,6 +341,7 @@ class ModelAnalyzer(ABC):
         y_multiply = test_data['multiply']
         test_flow_pkt_cnt = test_data['pkt_count'].to_list()
         test_flow_IDs = test_data['Flow ID'].to_list()
+        # ToDo: change get_x_y_flow to use all available features
         X_train, y_train, sample_nat_train = self.get_x_y_flow(train_data, self.feature_list)
         X_test, y_test, sample_nat_test = self.get_x_y_flow(test_data, self.feature_list)
 
@@ -349,9 +350,9 @@ class ModelAnalyzer(ABC):
         val_of_max_leaves = [41, 85, 129, 173, 217, 261, 305, 349, 393, 437, 481, 500]
 
         #
-        self.analyze_models(self.feature_list, trees, X_train, y_train, X_test, y_test,
-                            sample_nat_test, y_multiply, test_flow_pkt_cnt, test_flow_IDs, val_of_max_leaves,
-                            test_labels, test_indices, outfile, weight_of_samples, grid_search)
+        self.analyze_models(trees, X_train, y_train, X_test, y_test, sample_nat_test, y_multiply, test_flow_pkt_cnt,
+                            test_flow_IDs, val_of_max_leaves, test_labels, test_indices, outfile, weight_of_samples,
+                            grid_search)
         self.logger.debug(f'Analysis completed. Check output file: {outfile}')
 
     def load_cluster_data(self, cluster_data_series):

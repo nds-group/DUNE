@@ -78,8 +78,6 @@ def select_best_models_per_cluster(cluster_info, analysis_files_dir, support) ->
     """
 
     n_of_clusters = cluster_info.shape[0]
-    cluster_info = cluster_info.assign(Feats_Names=np.nan)
-    cluster_info = cluster_info.astype(dtype={"Feats_Names": "object"})
 
     directory = os.fsencode(analysis_files_dir)
     d_frames = defaultdict(list)
