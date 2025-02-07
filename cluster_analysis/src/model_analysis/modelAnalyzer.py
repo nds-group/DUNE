@@ -12,6 +12,15 @@ from itertools import compress
 
 import warnings
 
+# list of all extracted features
+feats_all = ['ip.len', 'ip.ttl', 'tcp.flags.syn', 'tcp.flags.ack', 'tcp.flags.push', 'tcp.flags.fin',
+             'tcp.flags.rst', 'tcp.flags.ece', 'ip.proto', 'srcport', 'dstport', 'ip.hdr_len', 'tcp.window_size_value',
+             'tcp.hdr_len', 'udp.length', 'Min Packet Length', 'Max Packet Length', 'Packet Length Mean',
+             'Packet Length Total', 'UDP Len Min', 'UDP Len Max', 'Flow IAT Min', 'Flow IAT Max', 'Flow IAT Mean',
+             'Flow Duration', 'SYN Flag Count', 'ACK Flag Count', 'PSH Flag Count', 'FIN Flag Count', 'RST Flag Count',
+             'ECE Flag Count']
+
+
 
 def assign_sample_nature(row):
     """Aux function to check the conditions and assign values"""
@@ -341,16 +350,15 @@ class ModelAnalyzer(ABC):
         y_multiply = test_data['multiply']
         test_flow_pkt_cnt = test_data['pkt_count'].to_list()
         test_flow_IDs = test_data['Flow ID'].to_list()
-        # ToDo: change get_x_y_flow to use all available features
-        X_train, y_train, sample_nat_train = self.get_x_y_flow(train_data, self.feature_list)
-        X_test, y_test, sample_nat_test = self.get_x_y_flow(test_data, self.feature_list)
+        x_train, y_train, sample_nat_train = self.get_x_y_flow(train_data)
+        x_test, y_test, sample_nat_test = self.get_x_y_flow(test_data)
 
         trees = [1, 2, 3, 4, 5]
         # Max values per TCAM table, i.e., 85 would require 2 TCAM tables
         val_of_max_leaves = [41, 85, 129, 173, 217, 261, 305, 349, 393, 437, 481, 500]
 
         #
-        self.analyze_models(trees, X_train, y_train, X_test, y_test, sample_nat_test, y_multiply, test_flow_pkt_cnt,
+        self.analyze_models(trees, x_train, y_train, x_test, y_test, sample_nat_test, y_multiply, test_flow_pkt_cnt,
                             test_flow_IDs, val_of_max_leaves, test_labels, test_indices, outfile, weight_of_samples,
                             grid_search)
         self.logger.debug(f'Analysis completed. Check output file: {outfile}')
@@ -377,8 +385,12 @@ class ModelAnalyzer(ABC):
             array_of_indices.append(index)
         return unique_labels, array_of_indices
 
-    def get_x_y_flow(self, dataset, feats):
-        x = dataset[feats]
+    def get_x_y_flow(self, dataset, feats=None):
+        if feats is None:
+            x = dataset[feats_all]
+        else:
+            x = dataset[feats]
+
         y = dataset['Label_NEW'].replace(self.classes, range(len(self.classes))).values.tolist()
         sample_nature = dataset['sample_nature']
         return x, y, sample_nature

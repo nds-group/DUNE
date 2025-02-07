@@ -34,7 +34,7 @@ def run_analysis(input_data):
 
 def __run_analysis(n_point, cluster_id):
     logger.info(f"Starting analysis of: Cluster id: {cluster_id}, npoint {n_point}")
-    f_name = f"{results_dir_path}/unsw_models_{n_point}pkts_PF_WB_20CL_Cluster{cluster_id}.csv"
+    f_name = f"{results_dir_path}/{use_case}_models_{n_point}pkts_Cluster{cluster_id}.csv"
     model_analyzer = None
     if use_case == 'UNSW':
         model_analyzer = UNSWModelAnalyzer(train_data_dir_path, test_data_dir_path, flow_counts_train_file_path,
