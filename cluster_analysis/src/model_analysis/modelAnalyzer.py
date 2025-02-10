@@ -12,16 +12,6 @@ from itertools import compress
 
 import warnings
 
-# list of all extracted features
-feats_all = ['ip.len', 'ip.ttl', 'tcp.flags.syn', 'tcp.flags.ack', 'tcp.flags.push', 'tcp.flags.fin',
-             'tcp.flags.rst', 'tcp.flags.ece', 'ip.proto', 'srcport', 'dstport', 'ip.hdr_len', 'tcp.window_size_value',
-             'tcp.hdr_len', 'udp.length', 'Min Packet Length', 'Max Packet Length', 'Packet Length Mean',
-             'Packet Length Total', 'UDP Len Min', 'UDP Len Max', 'Flow IAT Min', 'Flow IAT Max', 'Flow IAT Mean',
-             'Flow Duration', 'SYN Flag Count', 'ACK Flag Count', 'PSH Flag Count', 'FIN Flag Count', 'RST Flag Count',
-             'ECE Flag Count']
-
-
-
 def assign_sample_nature(row):
     """Aux function to check the conditions and assign values"""
     if (row["Min Packet Length"] == -1 and
@@ -66,8 +56,8 @@ def extend_test_data_with_flow_level_results(y_test, y_pred, samples_nature_test
 
 
 class ModelAnalyzer(ABC):
-    def __init__(self, train_data_folder_path, test_data_folder_path, flow_counts_train_file_path, 
-                 flow_counts_test_file_path, classes_filter, cluster_data_file_path, logger):
+    def __init__(self, train_data_folder_path, test_data_folder_path, flow_counts_train_file_path,
+                 flow_counts_test_file_path, classes_filter, features_filter, cluster_data_file_path, logger):
         self.logger = logger
         self.cluster_data_file_path = cluster_data_file_path
         self.train_data_folder_path = train_data_folder_path
@@ -75,6 +65,7 @@ class ModelAnalyzer(ABC):
         self.flow_counts_train_file_path = flow_counts_train_file_path
         self.flow_counts_test_file_path = flow_counts_test_file_path
         self.classes_filter = classes_filter
+        self.features_filter = features_filter
         self.feature_list = None
         self.classes = None
         self.classes_df = None
@@ -385,12 +376,10 @@ class ModelAnalyzer(ABC):
             array_of_indices.append(index)
         return unique_labels, array_of_indices
 
-    def get_x_y_flow(self, dataset, feats=None):
-        if feats is None:
-            x = dataset[feats_all]
-        else:
-            x = dataset[feats]
-
+    def get_x_y_flow(self, dataset):
+        # ToDo: selecting the subset of wanted features has nothing to do with the below code.
+        x = dataset[self.features_filter]
+        # gets the corresponding index for each label. Maybe a scikit requirement?
         y = dataset['Label_NEW'].replace(self.classes, range(len(self.classes))).values.tolist()
         sample_nature = dataset['sample_nature']
         return x, y, sample_nature
@@ -398,10 +387,9 @@ class ModelAnalyzer(ABC):
 
 class UNSWModelAnalyzer(ModelAnalyzer):
     def __init__(self, train_data_folder_path, test_data_folder_path, flow_counts_train_file_path,
-                 flow_counts_test_file_path, classes_filter,
-                 cluster_data_file_path, logger):
-        super().__init__(train_data_folder_path, test_data_folder_path, flow_counts_train_file_path, 
-                         flow_counts_test_file_path, classes_filter, cluster_data_file_path, logger)
+                 flow_counts_test_file_path, classes_filter, features_filter, cluster_data_file_path, logger):
+        super().__init__(train_data_folder_path, test_data_folder_path, flow_counts_train_file_path,
+                         flow_counts_test_file_path, classes_filter, features_filter, cluster_data_file_path, logger)
 
     def prepare_data(self, npkts, classes_filter=None):
         # Load train and test flow count files
@@ -427,11 +415,9 @@ class UNSWModelAnalyzer(ModelAnalyzer):
 
 class TONModelAnalyzer(ModelAnalyzer):
     def __init__(self, train_data_folder_path, test_data_folder_path, flow_counts_train_file_path,
-                 flow_counts_test_file_path, classes_filter,
-                 cluster_data_file_path, logger):
-        super().__init__(train_data_folder_path, test_data_folder_path, 
-                         flow_counts_train_file_path, flow_counts_test_file_path,classes_filter,
-                         cluster_data_file_path, logger)
+                 flow_counts_test_file_path, classes_filter, features_filter, cluster_data_file_path, logger):
+        super().__init__(train_data_folder_path, test_data_folder_path, flow_counts_train_file_path,
+                         flow_counts_test_file_path, classes_filter, features_filter, cluster_data_file_path, logger)
 
     def prepare_data(self, npkts, classes_filter=None):
         # Load train and test flow count files

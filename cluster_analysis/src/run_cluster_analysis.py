@@ -38,10 +38,12 @@ def __run_analysis(n_point, cluster_id):
     model_analyzer = None
     if use_case == 'UNSW':
         model_analyzer = UNSWModelAnalyzer(train_data_dir_path, test_data_dir_path, flow_counts_train_file_path,
-                                           flow_counts_test_file_path, classes_filter, cluster_data_file_path, logger)
+                                           flow_counts_test_file_path, classes_filter, features_filter,
+                                           cluster_data_file_path, logger)
     elif use_case == 'TON-IOT':
         model_analyzer = TONModelAnalyzer(train_data_dir_path, test_data_dir_path, flow_counts_train_file_path,
-                                          flow_counts_test_file_path, classes_filter, cluster_data_file_path, logger)
+                                          flow_counts_test_file_path, classes_filter, features_filter,
+                                          cluster_data_file_path, logger)
     model_analyzer.load_cluster_data(cluster_info.loc[cluster_id])
     model_analyzer.analyze_model_n_packets(n_point, f_name, force_rewrite, grid_search)
     logger.info(f"Finished analyzing n={n_point}, Cluster={cluster_id}. Results at: {results_dir_path}")
@@ -131,6 +133,10 @@ if __name__ == '__main__':
 
     results_dir_path = config[use_case]['results_dir_path']
     classes_filter = ast.literal_eval(config[use_case]['classes_filter'])
+    features_set = config[use_case]['features_set']
+    if features_set not in config['FEATURES']:
+        raise ValueError('Features set must be one of: ' + str(list(config._sections['FEATURES'])))
+    features_filter = ast.literal_eval(config['FEATURES'][features_set])
 
     # This is the main input to the program. Should be loaded into an object....
     cluster_data_file_path = config[use_case]['cluster_data_file_path']
