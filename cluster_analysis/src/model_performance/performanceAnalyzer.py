@@ -52,6 +52,8 @@ def calculate_tcam_for_featables(models_df):
         tcam_usage = 0
         for feat in feats_in_models:
             bit_length = feats_size_dict[feat]
+            # 44 is the size of each entry of the table
+            # ToDo: find out why we multiply by 2
             tcam_usage = tcam_usage + int((2 * bit_length) / 44) + 1
 
         tcam_usage_per_model.append(tcam_usage)
@@ -69,7 +71,7 @@ def total_tcam_usage(models_df):
     return models_df
 
 
-def select_best_models_per_cluster(cluster_info, analysis_files_dir, support) -> pd.DataFrame:
+def select_best_models_per_cluster(cluster_info, analysis_files_dir) -> pd.DataFrame:
     """ Selects the best model based on the available model analysis files and the flow pkts data
     :param cluster_info: a Dataframe containing the cluster information, i.e., classes and features information
     :param analysis_files_dir: Path to the analysis files directory
@@ -81,11 +83,8 @@ def select_best_models_per_cluster(cluster_info, analysis_files_dir, support) ->
 
     directory = os.fsencode(analysis_files_dir)
     d_frames = defaultdict(list)
-    classes = list(chain.from_iterable(cluster_info['Class List'].to_list()))
     pattern = re.compile('[0-9]+')
 
-    score_per_class_df = pd.DataFrame({'class': classes, 'support': support.to_list()})
-    score_per_class_df['Cluster'] = [-1] * len(score_per_class_df)
 
     for file in os.listdir(directory):
         # ToDo: filter on the inference point list in the ini file
@@ -99,8 +98,6 @@ def select_best_models_per_cluster(cluster_info, analysis_files_dir, support) ->
         extension = os.path.splitext(base)[1]
         if 'csv' not in extension:
             continue
-        if 'solution.csv' in file_string:
-            continue # this is the solution file
 
         grep_data = pattern.findall(file_string)
         n_point = int(grep_data[0])
@@ -109,6 +106,7 @@ def select_best_models_per_cluster(cluster_info, analysis_files_dir, support) ->
         model_analysis_for_nth = pd.read_csv(f'{analysis_files_dir}/{file_string}', sep=';',
                                              converters=dict.fromkeys(['feats'], literal_converter))
         model_analysis_for_nth['N'] = n_point
+        # ToDo: check if (1) is needed in line 113
         model_analysis_for_nth['Avg_F1_score'] = model_analysis_for_nth.apply(lambda x: (1) * (x['Macro_f1_FL']),
                                                                               axis=1)
         d_frames[cl].append(model_analysis_for_nth)

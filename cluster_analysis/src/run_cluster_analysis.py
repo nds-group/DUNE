@@ -83,7 +83,7 @@ def main():
             support = flow_pkt_counts['label'].value_counts().loc[classes].sort_index()
 
         logger.info("Selecting the best models for each cluster...")
-        best_models_df = select_best_models_per_cluster(cluster_info, results_dir_path, support)
+        best_models_df = select_best_models_per_cluster(cluster_info, results_dir_path)
         cluster_info = append_best_models_info_to_cluster_info(cluster_info, best_models_df)
         score_per_class_df = generate_score_per_class_report_for_best_models(classes, best_models_df, support)
 
