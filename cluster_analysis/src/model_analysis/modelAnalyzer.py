@@ -292,22 +292,22 @@ class ModelAnalyzer(ABC):
 
                         macro_f1_FL = FL_class_report['macro avg']['f1-score']
                         weighted_f1_FL = FL_class_report['weighted avg']['f1-score']
-                        # try:
-                        #     micro_f1_FL = FL_class_report['micro avg']['f1-score']
-                        # except:
-                        # ToDo: check why was the try/except block needed. Remove above-commented code otherwise.
-                        micro_f1_FL = FL_class_report['accuracy']
+                        # If the accuracy and micro avg results are equal, then micro is omitted
+                        if 'micro avg' in FL_class_report:
+                            micro_f1_FL = FL_class_report['micro avg']['f1-score']
+                        else:
+                            micro_f1_FL = FL_class_report['accuracy']
 
                         PL_class_report = classification_report(expanded_y_test, expanded_y_pred, labels=test_labels,
                                                                 target_names=test_label_names, output_dict=True)
 
                         macro_f1_PL = PL_class_report['macro avg']['f1-score']
                         weighted_f1_PL = PL_class_report['weighted avg']['f1-score']
-                        # try:
-                        #     micro_f1_PL = PL_class_report['micro avg']['f1-score']
-                        # except:
-                        # ToDo: check why was the try/except block needed. Remove above-commented code otherwise.
-                        micro_f1_PL = PL_class_report['accuracy']
+                        # If the accuracy and micro avg results are equal, then micro is omitted
+                        if 'micro avg' in PL_class_report:
+                            micro_f1_PL = PL_class_report['micro avg']['f1-score']
+                        else:
+                            micro_f1_PL = PL_class_report['accuracy']
 
                         depth = [estimator.tree_.max_depth for estimator in model.estimators_]
                         # The metric on which we select the best model is then the macro_f1_FL
