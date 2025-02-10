@@ -104,7 +104,7 @@ def select_best_models_per_cluster(cluster_info, analysis_files_dir, support) ->
 
         grep_data = pattern.findall(file_string)
         n_point = int(grep_data[0])
-        cl = int(grep_data[2])
+        cl = int(grep_data[1])
 
         model_analysis_for_nth = pd.read_csv(f'{analysis_files_dir}/{file_string}', sep=';',
                                              converters=dict.fromkeys(['feats'], literal_converter))
