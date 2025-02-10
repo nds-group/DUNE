@@ -158,11 +158,9 @@ class ModelAnalyzer(ABC):
                               y_multiply_test, y_test, y_train):
         with open(tmp_filename, "w") as res_file:
             self.logger.info(f'Writing grid search results to: {tmp_filename}')
-            print(
-                'depth;tree;no_feats;N_Leaves;Macro_f1_FL;Weighted_f1_FL;Micro_f1_FL;feats;pkt_macro_f1'
-                ';pkt_weighted_f1;flw_macro_f1;flw_weighted_f1;F1_macro;F1_weighted;num_samples;Macro_F1_PL'
-                ';Weighted_F1_PL;Micro_F1_PL;cl_report_FL;cl_report_PL',
-                file=res_file)
+            print('depth;tree;no_feats;N_Leaves;Macro_f1_FL;Weighted_f1_FL;Micro_f1_FL;feats;num_samples;'
+                  'Macro_F1_PL;Weighted_F1_PL;Micro_F1_PL;cl_report_FL;cl_report_PL',
+                  file=res_file)
             # register signal handler to delete file if code is not completed
             signal.signal(signal.SIGINT, signal_handler)
             n_tree =1
@@ -175,22 +173,6 @@ class ModelAnalyzer(ABC):
                 model.fit(x_train[feats], y_train, sample_weight=weight_of_samples)
                 # Infer (predict) the labels
                 y_pred = model.predict(x_test[feats]).tolist()
-
-                # Obtain a generic classification report. We later drill down to flow and pkt level reports.
-                overall_class_report = classification_report(y_test, y_pred, labels=test_labels,
-                                                             target_names=test_label_names, output_dict=True)
-
-                overall_macro_f1 = overall_class_report['macro avg']['f1-score']
-                overall_weighted_f1 = overall_class_report['weighted avg']['f1-score']
-
-                pkt_class_report = get_pkt_class_report(y_pred, y_test, samples_nature_test, test_labels, test_label_names)
-                pkt_macro_f1 = pkt_class_report['macro avg']['f1-score']
-                pkt_weighted_f1 = pkt_class_report['weighted avg']['f1-score']
-
-                flow_class_report = get_flow_class_report(y_pred, y_test, samples_nature_test, test_labels,
-                                                          test_label_names)
-                flw_macro_f1 = flow_class_report['macro avg']['f1-score']
-                flw_weighted_f1 = flow_class_report['weighted avg']['f1-score']
 
                 (expanded_y_test,
                  expanded_y_pred,
@@ -219,12 +201,10 @@ class ModelAnalyzer(ABC):
                 micro_f1_PL = PL_class_report['accuracy']
 
                 depth = [estimator.tree_.max_depth for estimator in model.estimators_]
-                print(str(depth) + ';' + str(n_tree) + ';' + str(len(feats)) + ';' + str(leaf) + ";" + str(
-                    macro_f1_FL) + ";" + str(weighted_f1_FL) + ";" + str(micro_f1_FL) + ";" + str(feats)
-                      + ';' + str(pkt_macro_f1) + ';' + str(pkt_weighted_f1) + ';' + str(
-                    flw_macro_f1) + ';' + str(flw_weighted_f1) + ';' + str(overall_macro_f1) + ';' + str(
-                    overall_weighted_f1) + ';' + str(num_samples) + ';' + str(macro_f1_PL) + ';' + str(
-                    weighted_f1_PL) + ';' + str(micro_f1_PL) + ';' + str(FL_class_report) + ';' + str(PL_class_report),
+                print(str(depth) + ';' + str(n_tree) + ';' + str(len(feats)) + ';' + str(leaf) + ";" +
+                      str(macro_f1_FL) + ";" + str(weighted_f1_FL) + ";" + str(micro_f1_FL) + ";" + str(feats) + ';' +
+                      str(num_samples) + ';' + str(macro_f1_PL) + ';' + str(weighted_f1_PL) + ';' +
+                      str(micro_f1_PL) + ';' + str(FL_class_report) + ';' + str(PL_class_report),
                       file=res_file)
 
 
@@ -233,11 +213,9 @@ class ModelAnalyzer(ABC):
                           y_multiply_test, y_test, y_train):
         with open(tmp_filename, "w") as res_file:
             self.logger.info(f'Writing grid search results to: {tmp_filename}')
-            print(
-                'depth;tree;no_feats;N_Leaves;Macro_f1_FL;Weighted_f1_FL;Micro_f1_FL;feats;pkt_macro_f1'
-                ';pkt_weighted_f1;flw_macro_f1;flw_weighted_f1;F1_macro;F1_weighted;num_samples;Macro_F1_PL'
-                ';Weighted_F1_PL;Micro_F1_PL;cl_report_FL;cl_report_PL',
-                file=res_file)
+            print('depth;tree;no_feats;N_Leaves;Macro_f1_FL;Weighted_f1_FL;Micro_f1_FL;feats;num_samples;'
+                  'Macro_F1_PL;Weighted_F1_PL;Micro_F1_PL;cl_report_FL;cl_report_PL',
+                  file=res_file)
             # register signal handler to delete file if code is not completed
             signal.signal(signal.SIGINT, signal_handler)
             # FOR EACH (n_tree, leaf, feat)
@@ -256,21 +234,6 @@ class ModelAnalyzer(ABC):
                         model.fit(x_train[feats], y_train, sample_weight=weight_of_samples)
                         # Infer (predict) the labels
                         y_pred = model.predict(x_test[feats]).tolist()
-
-                        #Obtain a generic classification report. We later drill down to flow and pkt level reports.
-                        overall_class_report = classification_report(y_test, y_pred, labels=test_labels,
-                                                                     target_names=test_label_names, output_dict=True)
-
-                        overall_macro_f1 = overall_class_report['macro avg']['f1-score']
-                        overall_weighted_f1 = overall_class_report['weighted avg']['f1-score']
-
-                        pkt_class_report = get_pkt_class_report(y_pred, y_test, samples_nature_test, test_labels, test_label_names)
-                        pkt_macro_f1 = pkt_class_report['macro avg']['f1-score']
-                        pkt_weighted_f1 = pkt_class_report['weighted avg']['f1-score']
-
-                        flow_class_report = get_flow_class_report(y_pred, y_test, samples_nature_test, test_labels, test_label_names)
-                        flw_macro_f1 = flow_class_report['macro avg']['f1-score']
-                        flw_weighted_f1 = flow_class_report['weighted avg']['f1-score']
 
                         # The result of the flow level inference must be applied to the consecutive packets.
                         # ToDo: use true or test consistently to avoid confusions.
@@ -311,13 +274,12 @@ class ModelAnalyzer(ABC):
 
                         depth = [estimator.tree_.max_depth for estimator in model.estimators_]
                         # The metric on which we select the best model is then the macro_f1_FL
-                        # ToDo: evaluate model while searching, and keep in memory the best found so far. Save the others as CSV files just in case.
-                        print(str(depth) + ';' + str(n_tree) + ';' + str(len(feats)) + ';' + str(leaf) + ";" + str(
-                              macro_f1_FL) + ";" + str(weighted_f1_FL) + ";" + str(micro_f1_FL) + ";" + str(feats)
-                              + ';' + str(pkt_macro_f1) + ';' + str(pkt_weighted_f1) + ';' + str(
-                              flw_macro_f1) + ';' + str(flw_weighted_f1) + ';' + str(overall_macro_f1) + ';' + str(
-                              overall_weighted_f1) + ';' + str(num_samples) + ';' + str(macro_f1_PL) + ';' + str(
-                              weighted_f1_PL) + ';' + str(micro_f1_PL) + ';' + str(FL_class_report) + ';' + str(PL_class_report),
+                        # ToDo: evaluate model while searching, and keep in memory the best found so far.
+                        #  Save the others as CSV files just in case.
+                        print(str(depth) + ';' + str(n_tree) + ';' + str(len(feats)) + ';' + str(leaf) + ";" +
+                              str(macro_f1_FL) + ";" + str(weighted_f1_FL) + ";" + str(micro_f1_FL) + ";" +
+                              str(feats) + ';' + str(num_samples) + ';' + str(macro_f1_PL) + ';' + str(weighted_f1_PL) +
+                              ';' + str(micro_f1_PL) + ';' + str(FL_class_report) + ';' + str(PL_class_report),
                               file=res_file)
 
     def analyze_model_n_packets(self, npkts, outfile, force=False, grid_search=False):
