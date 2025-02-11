@@ -12,6 +12,10 @@ from itertools import compress
 
 import warnings
 
+n_trees = [1, 2, 3, 4, 5]
+# Max values per TCAM table, i.e., 85 would require 2 TCAM tables
+max_leaves_list = [41, 85, 129, 173, 217, 261, 305, 349, 393, 437, 481, 500]
+
 def assign_sample_nature(row):
     """Aux function to check the conditions and assign values"""
     if (row["Min Packet Length"] == -1 and
@@ -122,7 +126,7 @@ class ModelAnalyzer(ABC):
         return train_data, test_data
 
 
-    def analyze_models(self, n_trees, max_leaf, train_data, test_data, filename, grid_search=False):
+    def analyze_models(self, train_data, test_data, filename, grid_search=False):
 
         # open file to save output of analysis
         root = os.path.splitext(filename)[0]
@@ -140,17 +144,16 @@ class ModelAnalyzer(ABC):
             raise KeyboardInterrupt()
 
         if grid_search:
-            self.write_grid_search(max_leaf, n_trees, signal_handler, tmp_filename, train_data, test_data)
+            self.write_grid_search(signal_handler, tmp_filename, train_data, test_data)
         else:
-            self.write_simple_analysis(max_leaf, signal_handler, tmp_filename, train_data, test_data)
+            self.write_simple_analysis(signal_handler, tmp_filename, train_data, test_data)
 
         shutil.move(tmp_filename, filename)
         self.logger.info(f'Finished model analysis. Saved results to: {filename}')
         signal.signal(signal.SIGINT, original_sigint_handler)
         return []
 
-    def write_simple_analysis(self, max_leaf, signal_handler, tmp_filename, train_data,
-                          test_data):
+    def write_simple_analysis(self, signal_handler, tmp_filename, train_data, test_data):
 
         # Get Variables and Labels
         y_multiply_test = test_data['multiply']
@@ -171,7 +174,7 @@ class ModelAnalyzer(ABC):
             signal.signal(signal.SIGINT, signal_handler)
             n_tree =1
             feats = x_train.columns.values.tolist()
-            for leaf in max_leaf:
+            for leaf in max_leaves_list:
                 # Prepare a model for the given (depth, n_tree, feat)
                 model = RandomForestClassifier(n_estimators=n_tree, max_leaf_nodes=leaf, n_jobs=10, random_state=42,
                                                bootstrap=False)
@@ -214,7 +217,7 @@ class ModelAnalyzer(ABC):
                       file=res_file)
 
 
-    def write_grid_search(self, max_leaf, n_trees, signal_handler, tmp_filename, train_data, test_data):
+    def write_grid_search(self, signal_handler, tmp_filename, train_data, test_data):
 
         # Get Variables and Labels
         y_multiply_test = test_data['multiply']
@@ -235,10 +238,8 @@ class ModelAnalyzer(ABC):
             # register signal handler to delete file if code is not completed
             signal.signal(signal.SIGINT, signal_handler)
             # FOR EACH (n_tree, leaf, feat)
-            # ToDo: make n_trees a global Int const
             for n_tree in n_trees:
-                # ToDo: make max_leaf a global list const
-                for leaf in max_leaf:
+                for leaf in max_leaves_list:
                     # get feature orders to use
                     m_feats = get_feature_importance_sets(n_tree, leaf, x_train, y_train, weight_of_samples)
                     for feats in m_feats:
@@ -307,13 +308,9 @@ class ModelAnalyzer(ABC):
                     f" analysis")
                 return
 
-        trees = [1, 2, 3, 4, 5]
-        # Max values per TCAM table, i.e., 85 would require 2 TCAM tables
-        val_of_max_leaves = [41, 85, 129, 173, 217, 261, 305, 349, 393, 437, 481, 500]
-
         train_data, test_data = self.prepare_data(npkts, self.classes_filter)
 
-        self.analyze_models(trees, val_of_max_leaves, train_data, test_data, outfile, grid_search)
+        self.analyze_models(train_data, test_data, outfile, grid_search)
         self.logger.debug(f'Analysis completed. Check output file: {outfile}')
 
     def load_cluster_data(self, cluster_data_series):
@@ -425,7 +422,6 @@ def get_feature_importance_sets(n_tree, max_leaf, x_train, y_train, weight_of_sa
         List[List[str]]
             A list of lists of strings, where each nested list contains a cumulative subset of feature names sorted by importance.
     """
-    # ToDo: check that the importance analysis evaluates all existing features and not only the features set provided by the SPP.
     rf_opt = RandomForestClassifier(n_estimators=n_tree, max_leaf_nodes=max_leaf, random_state=42, bootstrap=False,
                                     n_jobs=10)
     rf_opt.fit(x_train, y_train, sample_weight=weight_of_samples)
