@@ -106,9 +106,7 @@ def select_best_models_per_cluster(cluster_info, analysis_files_dir) -> pd.DataF
         model_analysis_for_nth = pd.read_csv(f'{analysis_files_dir}/{file_string}', sep=';',
                                              converters=dict.fromkeys(['feats'], literal_converter))
         model_analysis_for_nth['N'] = n_point
-        # ToDo: check if (1) is needed in line 113
-        model_analysis_for_nth['Avg_F1_score'] = model_analysis_for_nth.apply(lambda x: (1) * (x['Macro_f1_FL']),
-                                                                              axis=1)
+        model_analysis_for_nth['Avg_F1_score'] = model_analysis_for_nth['Macro_f1_FL']
         d_frames[cl].append(model_analysis_for_nth)
 
     chosen_models=[]
