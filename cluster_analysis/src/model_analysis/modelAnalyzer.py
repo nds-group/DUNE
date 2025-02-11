@@ -121,9 +121,9 @@ class ModelAnalyzer(ABC):
                                         1 / train_data['pkt_count'])
         return train_data, test_data
 
-    def analyze_models(self, n_trees, x_train, y_train, x_test, y_test, samples_nature, y_multiply, test_flow_pkt_cnt,
-                       test_flow_ids, max_leaf, test_labels, test_indices, filename, weight_of_samples,
-                       grid_search=False):
+
+    def analyze_models(self, n_trees, max_leaf, train_data, test_data, filename, grid_search=False):
+
         # open file to save output of analysis
         root = os.path.splitext(filename)[0]
         extension = os.path.splitext(filename)[1]
@@ -140,22 +140,28 @@ class ModelAnalyzer(ABC):
             raise KeyboardInterrupt()
 
         if grid_search:
-            self.write_grid_search(x_test, x_train, max_leaf, n_trees, samples_nature, signal_handler, test_flow_ids,
-                                   test_flow_pkt_cnt, test_indices, test_labels, tmp_filename, weight_of_samples,
-                                   y_multiply, y_test, y_train)
+            self.write_grid_search(max_leaf, n_trees, signal_handler, tmp_filename, train_data, test_data)
         else:
-            self.write_simple_analysis(x_test, x_train, max_leaf, samples_nature, signal_handler, test_flow_ids,
-                                       test_flow_pkt_cnt, test_indices, test_labels, tmp_filename, weight_of_samples,
-                                       y_multiply, y_test, y_train)
+            self.write_simple_analysis(max_leaf, signal_handler, tmp_filename, train_data, test_data)
 
         shutil.move(tmp_filename, filename)
         self.logger.info(f'Finished model analysis. Saved results to: {filename}')
         signal.signal(signal.SIGINT, original_sigint_handler)
         return []
 
-    def write_simple_analysis(self, x_test, x_train, max_leaf, samples_nature_test, signal_handler, flow_ids_test,
-                              flow_pkt_cnt_test, test_labels, test_label_names, tmp_filename, weight_of_samples,
-                              y_multiply_test, y_test, y_train):
+    def write_simple_analysis(self, max_leaf, signal_handler, tmp_filename, train_data,
+                          test_data):
+
+        # Get Variables and Labels
+        y_multiply_test = test_data['multiply']
+        flow_pkt_cnt_test = test_data['pkt_count'].to_list()
+        flow_ids_test = test_data['Flow ID'].to_list()
+        x_train, y_train, samples_nature_train = self.get_x_y_flow(train_data)
+        x_test, y_test, samples_nature_test = self.get_x_y_flow(test_data)
+        test_label_names, test_indices = self.get_test_labels(test_data)
+        weight_of_samples = list(train_data['weight'])
+        self.logger.debug(f'Num Labels: {len(test_label_names)}')
+
         with open(tmp_filename, "w") as res_file:
             self.logger.info(f'Writing grid search results to: {tmp_filename}')
             print('depth;tree;no_feats;N_Leaves;Macro_f1_FL;Weighted_f1_FL;Micro_f1_FL;feats;num_samples;'
@@ -185,7 +191,7 @@ class ModelAnalyzer(ABC):
                                                                                flow_ids_test)
                 num_samples = len(expanded_y_test)
 
-                FL_class_report = classification_report(expanded_y_test, expanded_y_pred, labels=test_labels,
+                FL_class_report = classification_report(expanded_y_test, expanded_y_pred, labels=test_label_names,
                                                         target_names=test_label_names, output_dict=True,
                                                         sample_weight=expanded_weights)
 
@@ -193,7 +199,7 @@ class ModelAnalyzer(ABC):
                 weighted_f1_FL = FL_class_report['weighted avg']['f1-score']
                 micro_f1_FL = FL_class_report['accuracy']
 
-                PL_class_report = classification_report(expanded_y_test, expanded_y_pred, labels=test_labels,
+                PL_class_report = classification_report(expanded_y_test, expanded_y_pred, labels=test_label_names,
                                                         target_names=test_label_names, output_dict=True)
 
                 macro_f1_PL = PL_class_report['macro avg']['f1-score']
@@ -208,9 +214,19 @@ class ModelAnalyzer(ABC):
                       file=res_file)
 
 
-    def write_grid_search(self, x_test, x_train, max_leaf, n_trees, samples_nature_test, signal_handler, flow_ids_test,
-                          flow_pkt_cnt_test, test_labels, test_label_names, tmp_filename, weight_of_samples,
-                          y_multiply_test, y_test, y_train):
+    def write_grid_search(self, max_leaf, n_trees, signal_handler, tmp_filename, train_data, test_data):
+
+        # Get Variables and Labels
+        y_multiply_test = test_data['multiply']
+        flow_pkt_cnt_test = test_data['pkt_count'].to_list()
+        flow_ids_test = test_data['Flow ID'].to_list()
+        x_train, y_train, samples_nature_train = self.get_x_y_flow(train_data)
+        x_test, y_test, samples_nature_test = self.get_x_y_flow(test_data)
+        test_label_names, test_indices = self.get_test_labels(test_data)
+        weight_of_samples = list(train_data['weight'])
+        self.logger.debug(f'Num Labels: {len(test_label_names)}')
+
+        # ToDo: filter out results with 2 or 4 trees
         with open(tmp_filename, "w") as res_file:
             self.logger.info(f'Writing grid search results to: {tmp_filename}')
             print('depth;tree;no_feats;N_Leaves;Macro_f1_FL;Weighted_f1_FL;Micro_f1_FL;feats;num_samples;'
@@ -249,7 +265,7 @@ class ModelAnalyzer(ABC):
                                                                                        flow_ids_test)
                         num_samples = len(expanded_y_test)
 
-                        FL_class_report = classification_report(expanded_y_test, expanded_y_pred, labels=test_labels,
+                        FL_class_report = classification_report(expanded_y_test, expanded_y_pred, labels=test_indices,
                                                                 target_names=test_label_names, output_dict=True,
                                                                 sample_weight=expanded_weights)
 
@@ -261,7 +277,7 @@ class ModelAnalyzer(ABC):
                         else:
                             micro_f1_FL = FL_class_report['accuracy']
 
-                        PL_class_report = classification_report(expanded_y_test, expanded_y_pred, labels=test_labels,
+                        PL_class_report = classification_report(expanded_y_test, expanded_y_pred, labels=test_indices,
                                                                 target_names=test_label_names, output_dict=True)
 
                         macro_f1_PL = PL_class_report['macro avg']['f1-score']
@@ -291,29 +307,13 @@ class ModelAnalyzer(ABC):
                     f" analysis")
                 return
 
-        # Get Variables and Labels
-        train_data, test_data = self.prepare_data(npkts, self.classes_filter)
-
-        test_labels, test_indices = self.get_test_labels(test_data)
-        self.logger.debug(f'Num Labels: {len(test_labels)}')
-
-        weight_of_samples = list(train_data['weight'])
-
-        # TODO: drop intermediate vars and pass test/train data vars to analyze_models method
-        y_multiply = test_data['multiply']
-        test_flow_pkt_cnt = test_data['pkt_count'].to_list()
-        test_flow_IDs = test_data['Flow ID'].to_list()
-        x_train, y_train, sample_nat_train = self.get_x_y_flow(train_data)
-        x_test, y_test, sample_nat_test = self.get_x_y_flow(test_data)
-
         trees = [1, 2, 3, 4, 5]
         # Max values per TCAM table, i.e., 85 would require 2 TCAM tables
         val_of_max_leaves = [41, 85, 129, 173, 217, 261, 305, 349, 393, 437, 481, 500]
 
-        #
-        self.analyze_models(trees, x_train, y_train, x_test, y_test, sample_nat_test, y_multiply, test_flow_pkt_cnt,
-                            test_flow_IDs, val_of_max_leaves, test_labels, test_indices, outfile, weight_of_samples,
-                            grid_search)
+        train_data, test_data = self.prepare_data(npkts, self.classes_filter)
+
+        self.analyze_models(trees, val_of_max_leaves, train_data, test_data, outfile, grid_search)
         self.logger.debug(f'Analysis completed. Check output file: {outfile}')
 
     def load_cluster_data(self, cluster_data_series):
