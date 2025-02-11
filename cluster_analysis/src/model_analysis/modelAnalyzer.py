@@ -12,7 +12,8 @@ from itertools import compress
 
 import warnings
 
-n_trees = [1, 2, 3, 4, 5]
+# an even number of trees is problematic for implementing the voting table. Try to avoid them.
+n_trees = [1, 3, 5]
 # Max values per TCAM table, i.e., 85 would require 2 TCAM tables
 max_leaves_list = [41, 85, 129, 173, 217, 261, 305, 349, 393, 437, 481, 500]
 
