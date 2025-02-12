@@ -86,7 +86,7 @@ def main():
         input_data = inference_points_list
         try:
             # issue tasks to the process pool
-            pool.imap_unordered(run_analysis, input_data, chunksize=chunksize)
+            # pool.imap_unordered(run_analysis, input_data, chunksize=chunksize)
             # shutdown the process pool
             pool.close()
         except KeyboardInterrupt:
@@ -96,8 +96,9 @@ def main():
         pool.join()
 
 
-        logger.info("Selecting the best model")
+        logger.info("Selecting the best unconstrained model")
         best_model_info = select_best_unconstained_model(results_dir_path)
+        logger.info(f"The best unconstrained model: {best_model_info}")
         run_model_generation(best_model_info)
 
     del pool
