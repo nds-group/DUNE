@@ -86,7 +86,7 @@ def main():
         input_data = inference_points_list
         try:
             # issue tasks to the process pool
-            # pool.imap_unordered(run_analysis, input_data, chunksize=chunksize)
+            pool.imap_unordered(run_analysis, input_data, chunksize=chunksize)
             # shutdown the process pool
             pool.close()
         except KeyboardInterrupt:
