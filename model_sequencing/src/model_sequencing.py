@@ -13,7 +13,11 @@ import logging
 # from setup_logger import logger
 from TSP import TSP_MTZ_Formulation, get_cluster_seq
 #ToDo: remove unnecessary imports numpy, sklearn, pyomo, logger
+from ast import literal_eval
 
+def literal_converter(val):
+    # replace first val with '' or some other null identifier if required
+    return val if val == '' else literal_eval(val)
 
 def assign_sample_nature(row):
     '''
@@ -39,15 +43,19 @@ def get_cluster_details(cluster_info_df):
     cluster_info_all_classes = []
     cluster_no = 0
     for cl in cluster_info_df['Class List'].to_list():
-        classes_str = cl[2:-2] #TODO: Check if it is the same in all use cases
+        classes_str = cl[2:-2]
         classes = classes_str.split("', '")
         cluster_list.append(classes)
         all_classes_in_clusters.extend(classes)
         cluster_info_all_classes.extend([cluster_no]*len(classes))
         cluster_no = cluster_no + 1
+    # ToDo: replace cluster_info_all_classes with an individual method that returns the cluster number for a given class.
+    # ToDo: all_classes_in_clusters can be returned using the cluster_info_df['Class List'].sum() directly.
+    # ToDo: cluster_list can be returned using cluster_info_df['Class List'].to_list()
     return cluster_list, all_classes_in_clusters, cluster_info_all_classes
 
 
+# ToDo: I suggest removing this function.
 def get_final_cluster_info(clusters_best_model_info, logger):
     '''
     Function to get the dataframe that holds the information of clusters sequenced
@@ -298,8 +306,9 @@ def get_confusion_matrix(use_case, classes_filter, cluster_list, all_classes_in_
         #
         logging.getLogger(f'{use_case}').info(f'The model info: \n {npkts, n_tree, max_n_leaves, feat_names, classes}')
         #
-        # ToDo: check analyze_model comments. In general, the function receives too many arguments and returns too many
-        #  values. The name of the function should also be more descriptive (should hint what you expect to return).
+        # ToDo: This function receives too many arguments and returns too many values.
+        #  The name of the function should also be more descriptive (should hint what you expect to return).
+        #  Since we already analysed all models in the previous step, can we avoid re-training in the future?
         expanded_y_true, expanded_y_pred, expanded_weights, expanded_y_true_all = analyze_model(use_case, classes_filter, npkts, n_tree, max_n_leaves, feat_names, classes, classes_df, flow_counts_test_file_path, flow_counts_train_file_path, train_data_dir_path, test_data_dir_path)
         # ToDo: you can build a Df as pd.Dataframe({'True_Label_Cluster': expanded_y_true, 'Pred_Label_Cluster': expanded_y_pred, 'True_Label_All': expanded_y_true_all, 'Weight_per_packet': expanded_weights})
         pred_df = pd.DataFrame()
@@ -417,7 +426,11 @@ if __name__ == '__main__':
     results_dir_path = config[use_case]['results_dir_path']
     
     # Get the cluster information which is obtained in the previous steps
+    # ToDo: use converters to parse list representations.
+    #  E.g. pass converters=dict.fromkeys(['Class List', 'Feature List'], literal_converter) to pd.read_csv
     clusters_best_model_info = pd.read_csv(best_models_path)
+    # clusters_best_model_info = clusters_best_model_info.drop(['Unnamed: 0'], axis=1)
+    # clusters_best_model_info = clusters_best_model_info.set_index('Cluster', drop=True)
     cluster_list, all_classes_in_clusters, cluster_info_all_classes = get_cluster_details(clusters_best_model_info)
     
     # Get the confusion matrix between the models of the corresponding clusters
@@ -449,5 +462,6 @@ if __name__ == '__main__':
     # clusters_seq = (2, 0, 1, 3, 4, 5) #UNSW
     
     # Get final clustering information after sequencing
+    # ToDo: I suggest to remove the code below, as this code only needs to order.
     seq_cluster_info_w_others = get_final_cluster_info(clusters_best_model_info, logger)
     seq_cluster_info_w_others.to_csv(results_dir_path + use_case+'_sequenced_clusters_info.csv')
