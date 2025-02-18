@@ -22,6 +22,13 @@ class DataGenerator:
         pd.options.mode.chained_assignment = None
 
     def get_hybrid_data(self, min_number_of_packets, filename_in, packet_data, result_dir):
+        '''
+        The function generates train/test data by assigning -1 to the flow level 
+        features and actual values to the packet level features of the first N-1 packets 
+        and assigning the actual packet- and flow-level features to the Nth packet calculated 
+        over the first N packets.
+        '''
+        
         filename_out = f"{result_dir}/{self.use_case}_hybrid_N_{min_number_of_packets}.csv"
         number_of_pkts_limit = min_number_of_packets
         #===============================Extract flows from packets and calculate features=============================================#
@@ -256,6 +263,9 @@ class DataGenerator:
                     text_file.write("\n")
 
     def read_data(self, filename_in):
+        '''
+        The function reads a .txt file and generates all the packet level features.
+        '''
         packet_data = pd.DataFrame()
 
         packet_data = pd.read_csv(filename_in, sep = '|', header=None)
@@ -308,7 +318,9 @@ class DataGenerator:
         self.packet_data = packet_data
 
     def label_data(self, label_data):
-        
+        '''
+        The function that labels all the packets with the  ground truth class
+        '''
         if self.use_case == "UNSW":
             self.packet_data["label"] = [0] * len(self.packet_data)
             for i in range(len(label_data)):
@@ -328,7 +340,10 @@ class DataGenerator:
             self.packet_data = pd.merge(self.packet_data, label_data, on='Flow ID')
 
     def convert_pcap_to_txt(self):
-
+        '''
+        The function generates .txt file from pcap traces by 
+        extracting packet level features
+        '''
         # Create directory for txt files
         # os.makedirs(pcap_folder+"/generated_data", exist_ok=True)
 
@@ -354,6 +369,9 @@ class DataGenerator:
                 subprocess.run(command, stdout=out_file, check=True)
                 
     def get_flow_length(self):
+        '''
+        The function that calculates the flow length per flow and store
+        '''
 
         # Count occurrences of each category and add as a new column
         packet_data = self.packet_data.copy()
@@ -363,7 +381,9 @@ class DataGenerator:
         packet_data.to_csv(f"{self.pcap_folder}/{self.use_case}_flow_length.csv")    
                 
     def convert_txt_to_packet_data(self, f):
-
+        '''
+        The function generates packet-level data and label all the packets
+        '''
         self.read_data(f"{self.pcap_folder}/{f}")   
         label_data_df = pd.read_csv(self.label_data_path)
         self.label_data(label_data_df)
