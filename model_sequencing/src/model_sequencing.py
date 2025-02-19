@@ -1,24 +1,16 @@
 import ast
 import collections
+import logging
+import configparser
 
 import pandas as pd
-# import numpy as np
-import configparser
-# from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, confusion_matrix, classification_report, f1_score, DistanceMetric
-# import pyomo.environ as pyo
 import numpy as np
-import gurobipy 
-import logging
-# from setup_logger import logger
+from sklearn.ensemble import RandomForestClassifier
 from TSP import find_with_tsp_selected_edges, get_cluster_seq
-#ToDo: remove unnecessary imports numpy, sklearn, pyomo, logger
-from ast import literal_eval
 
 def literal_converter(val):
     # replace first val with '' or some other null identifier if required
-    return val if val == '' else literal_eval(val)
+    return val if val == '' else ast.literal_eval(val)
 
 def assign_sample_nature(row):
     '''
@@ -34,59 +26,26 @@ def assign_sample_nature(row):
         return "flw"
     
 
-def get_cluster_details(cluster_info_df):
+def get_class_to_cluster_map(cluster_info_df):
     '''
     Function to get the list of clusters, classes and 
     list of clusters corresponding to the given classes.
     '''
-    cluster_list = []
-    all_classes_in_clusters = []
-    cluster_info_all_classes = []
-    cluster_no = 0
-    for cl in cluster_info_df['Class List'].to_list():
-        # classes_str = cl[2:-2]
-        # classes = classes_str.split("', '")
-        cluster_list.append(cl)
-        all_classes_in_clusters.extend(cl)
-        cluster_info_all_classes.extend([cluster_no]*len(cl))
-        cluster_no = cluster_no + 1
-    # ToDo: replace cluster_info_all_classes with an individual method that returns the cluster number for a given class.
-    # ToDo: all_classes_in_clusters can be returned using the cluster_info_df['Class List'].sum() directly.
-    # ToDo: cluster_list can be returned using cluster_info_df['Class List'].to_list()
-    return cluster_list, all_classes_in_clusters, cluster_info_all_classes
+    class_to_cluster_map = {}
 
-def get_test_labels_others(IoT_Test, classes_df):
-    '''
-    Function to get the test labels
-    '''
-    array_of_indices = []
-    unique_labels = IoT_Test["Label_NEW"].unique()
-    # unique_labels = IoT_Test["Label"].unique()
-    for lab in unique_labels:
-        index = classes_df[classes_df['class'] == lab].index.values[0]
-        array_of_indices.append(index)
-    return unique_labels, array_of_indices
+    for cluster_id, class_list in cluster_info_df['Class List'].items():
+        for _class in class_list:
+            class_to_cluster_map[_class] = cluster_id
 
-# ToDo: this function does simple things but it obscures the code.
-#  In my opinion, these operations should be done directly where needed.
-#  Same applies for modelAnalyzer.get_x_y_flow.
-#  Both do very similar things but the fact that the code is encapsulated in a function makes it hard to reuse.
-def get_x_y_flow_others(Dataset, feats, classes, all_classes_in_clusters):
-    '''
-    Function to get train and test data for the model
-    ''' 
-    X = Dataset[feats]
-    y = Dataset['Label_NEW'].infer_objects(copy=False).replace(classes, range(len(classes)))
-    y_all = Dataset['Label'].infer_objects(copy=False).replace(all_classes_in_clusters, range(len(all_classes_in_clusters)))
-    sample_nature = Dataset['sample_nature']
-    return X, y, sample_nature, y_all
+    return class_to_cluster_map
 
 # ToDo: The name of the function does not map its description.
 #  Also, there is a lot of code which is not used in this function (lines 142-159).
 #  Please, consider reusing cluster_analysis.extend_test_data_with_flow_level_results.
 #  If not possible, try to generalize the function to be used in both cases.
 #  In any case, unique_labels, and array_of_indices are not needed.
-def expand_rows_and_get_scores_others(y_true, y_pred, y_test_ALL, sample_nature, multiply, test_flow_pkt_cnt, test_flow_IDs, unique_labels, array_of_indices):
+def expand_rows_and_get_scores_others(y_true, y_pred, y_test_ALL, sample_nature, multiply, test_flow_pkt_cnt,
+                                      test_flow_IDs):
     """
     Function to calculate the score of the model in terms of Flow-Level metric and 
     return the classification results of all packets
@@ -114,51 +73,30 @@ def expand_rows_and_get_scores_others(y_true, y_pred, y_test_ALL, sample_nature,
             expanded_weights.append(1/pkt_cnt)
             expanded_flow_IDs.append(f_id)
     
-    # num_samples = len(expanded_y_true)
-
     expanded_y_true = [int(label) for label in expanded_y_true]
     expanded_y_pred = [int(label) for label in expanded_y_pred]
-    #
-    # cl_report_PL = classification_report(expanded_y_true, expanded_y_pred, labels=unique_labels, target_names=array_of_indices, output_dict=True)
-    # # Packet-level score calculations - return if needed
-    # macro_f1_PL = cl_report_PL['macro avg']['f1-score']
-    # weighted_f1_PL = cl_report_PL['weighted avg']['f1-score']
-    # try:
-    #     micro_f1_PL = cl_report_PL['micro avg']['f1-score']
-    # except:
-    #     micro_f1_PL = cl_report_PL['accuracy']
-    # ####
-    #
-    # c_report_FL =  classification_report(expanded_y_true, expanded_y_pred, labels=unique_labels, target_names=array_of_indices, output_dict=True,sample_weight=expanded_weights)
-    # # Flow-level score calculations - return if needed
-    # macro_f1_FL = c_report_FL['macro avg']['f1-score']
-    # weighted_f1_FL = c_report_FL['weighted avg']['f1-score']
-    # try:
-    #     micro_f1_FL = c_report_FL['micro avg']['f1-score']
-    # except:
-    #     micro_f1_FL = c_report_FL['accuracy']
     
     return expanded_y_true, expanded_y_pred, expanded_weights, expanded_y_true_all
 
 
-def analyze_model(use_case, classes_filter, npkts, n_tree, max_leaf, feats, classes, classes_df, flow_counts_test_file_path, flow_counts_train_file_path, train_data_dir_path, test_data_dir_path):    
+def analyze_model(use_case, classes_filter, npkts, n_tree, max_leaf, feats, classes, all_classes_in_clusters, flow_counts_test_file_path, flow_counts_train_file_path, train_data_dir_path, test_data_dir_path):
     """
     The function that trains a RandomForestClassifier with the provided data and parameters.
     """
+    # ToDo: lines 126-205 are related to data preparation, which will be taken care in the InferencePointData object.
+    #  Please remove during refactoring
     if(use_case == 'UNSW'):
         # Load Train and Test data
         train_data = pd.read_csv(train_data_dir_path+"/train_data_"+str(npkts)+".csv")
         test_data = pd.read_csv(test_data_dir_path+"/16-10-05.pcap.txt_"+str(npkts)+"_pkts.csv")
-        #
+
         flow_pkt_counts = pd.read_csv(flow_counts_test_file_path)
-        #
-        ### FIX ###
+
         flow_count_dict = flow_pkt_counts.set_index("flow.id")["count"].to_dict()
         # Map the values from flow_pkt_counts to test_data based on the "Flow ID" column
         test_data["pkt_count"] = test_data["Flow ID"].map(flow_count_dict)
-        ###########
-        
-        #### To get packet count of each flow in train data
+
+        # To get packet count of each flow in train data
         packet_data = pd.read_csv("/home/beyzabutun/shared/UNSW_PCAPS/train/train_data_hybrid/UNSW_train_ALL_PKT_DATE.csv")
         packet_data = packet_data[['Flow ID', 'packet_count', 'File']]
         packet_data['File_ID'] = packet_data['Flow ID'] + ' ' + packet_data['File']
@@ -193,19 +131,12 @@ def analyze_model(use_case, classes_filter, npkts, n_tree, max_leaf, feats, clas
 
     train_data = train_data.dropna(subset=['srcport', 'dstport']) 
     test_data  = test_data.dropna(subset=['srcport', 'dstport'])
-    #########
+
     train_data = train_data[train_data['Label'].isin(classes_filter)]
     test_data = test_data[test_data['Label'].isin(classes_filter)]
-    #########
-    
-    ####
+
     train_data['Label_NEW'] = np.where((train_data['Label'].isin(classes)), train_data['Label'], 'Other')
     test_data['Label_NEW'] = np.where((test_data['Label'].isin(classes)), test_data['Label'], 'Other')
-    ####
-
-    test_labels, test_indices = get_test_labels_others(test_data, classes_df)
-    # print("Num Labels: ", len(test_labels))
-    # print("Index: ", test_indices)
 
     train_data['sample_nature'] = train_data.apply(assign_sample_nature, axis=1)
     test_data['sample_nature']  = test_data.apply(assign_sample_nature, axis=1)
@@ -217,34 +148,48 @@ def analyze_model(use_case, classes_filter, npkts, n_tree, max_leaf, feats, clas
     y_multiply = test_data['multiply'].astype(int)
     test_flow_pkt_cnt = test_data['pkt_count'].to_list()
     test_flow_IDs = test_data['Flow ID'].to_list()
-    X_train, y_train, sample_nat_train, y_train_ALL = get_x_y_flow_others(train_data, feats, classes, all_classes_in_clusters)
-    X_test,  y_test, sample_nat_test, y_test_ALL  = get_x_y_flow_others(test_data, feats, classes, all_classes_in_clusters)
-    
+
+    train_samples = train_data[feats]
+    train_labels = train_data['Label_NEW'].replace(classes, range(len(classes)))
+
+    test_samples = test_data[feats]
+    test_labels = test_data['Label_NEW'].replace(classes, range(len(classes)))
+    test_labels_all_clusters = test_data['Label'].replace(all_classes_in_clusters, range(len(all_classes_in_clusters)))
+    test_samples_nature = test_data['sample_nature']
+
     model = RandomForestClassifier(n_estimators = n_tree, max_leaf_nodes=max_leaf, n_jobs=10,
                                         random_state=42, bootstrap=False)
     
-    model.fit(X_train[feats], y_train, sample_weight=weight_of_samples)
-    y_pred = model.predict(X_test[feats])
+    model.fit(train_samples[feats], train_labels, sample_weight=weight_of_samples)
+    y_pred = model.predict(test_samples[feats])
 
-    y_test = [int(label) for label in y_test.values]
+    test_labels = [int(label) for label in test_labels.values]
     y_pred = [int(label) for label in y_pred]
-    # ToDo: why is y_test_ALL not converted to ints?
-    expanded_y_true, expanded_y_pred, expanded_weights, expanded_y_true_all = expand_rows_and_get_scores_others(y_test, y_pred, y_test_ALL, sample_nat_test, y_multiply, test_flow_pkt_cnt, test_flow_IDs, test_indices, test_labels)
+    # ToDo: why is test_labels_all_clusters not converted to ints?
+    expanded_y_true, expanded_y_pred, expanded_weights, expanded_y_true_all = expand_rows_and_get_scores_others(test_labels,
+                                                                                                                y_pred,
+                                                                                                                test_labels_all_clusters,
+                                                                                                                test_samples_nature,
+                                                                                                                y_multiply,
+                                                                                                                test_flow_pkt_cnt,
+                                                                                                                test_flow_IDs)
                            
     return expanded_y_true, expanded_y_pred, expanded_weights, expanded_y_true_all
     
-# ToDo: this should probably become a function of ModelAnalyzer. Please check if it is possible.
-def get_confusion_matrix(use_case, classes_filter, cluster_list, all_classes_in_clusters, clusters_best_model_info, flow_counts_test_file_path, flow_counts_train_file_path, train_data_dir_path, test_data_dir_path):
+# ToDo: this will become a function of the Partition object. Almost all parameters won't be needed.
+def get_confusion_matrix(use_case, classes_filter, clusters_best_model_info, flow_counts_test_file_path,
+                         flow_counts_train_file_path, train_data_dir_path, test_data_dir_path):
     """
     Function to get the confusion matrix of the models of clusters
     """
+    cluster_list = clusters_best_model_info['Class List'].tolist()
+    all_classes_in_clusters = clusters_best_model_info['Class List'].sum()
+    class_to_cluster_map = get_class_to_cluster_map(clusters_best_model_info)
+
+
     cm_matrix = pd.DataFrame()
-    # ToDo: why do we need a list comprehension in the below assignment?
-    cm_matrix['Classes'] = [i for i in all_classes_in_clusters]
+    cm_matrix['Classes'] = all_classes_in_clusters
     cm_matrix_cluster = pd.DataFrame()
-    # ToDo: a DataFrame has by default an index. Column `Clusters` is unnecessary.
-    # cm_matrix_cluster['Clusters'] = [i for i in range(0, len(cluster_list))]
-    ##
 
     for cluster_id in range(0, len(cluster_list)):
         npkts = int(clusters_best_model_info.loc[cluster_id]['N_With_Others'])
@@ -254,9 +199,6 @@ def get_confusion_matrix(use_case, classes_filter, cluster_list, all_classes_in_
 
         classes = cluster_list[cluster_id]
         classes.append('Other')
-        # ToDo: once this becomes a function of ModelAnalyzer, you can remove the classes_df.
-        #  Since it won't be neeeded in analyze_model.
-        classes_df = pd.DataFrame(classes, columns=['class'])
 
         cluster_perf_dict = collections.defaultdict(int)
         #
@@ -264,9 +206,9 @@ def get_confusion_matrix(use_case, classes_filter, cluster_list, all_classes_in_
         #
         # ToDo: This function receives too many arguments and returns too many values.
         #  The name of the function should also be more descriptive (should hint what you expect to return).
-        #  Since we already analysed all models in the previous step, can we avoid re-training in the future?
-        expanded_y_true, expanded_y_pred, expanded_weights, expanded_y_true_all = analyze_model(use_case, classes_filter, npkts, n_tree, max_n_leaves, feat_names, classes, classes_df, flow_counts_test_file_path, flow_counts_train_file_path, train_data_dir_path, test_data_dir_path)
-        # ToDo: you can build a Df as pd.Dataframe({'True_Label_Cluster': expanded_y_true, 'Pred_Label_Cluster': expanded_y_pred, 'True_Label_All': expanded_y_true_all, 'Weight_per_packet': expanded_weights})
+        # ToDo: We will call the fit and predict functions from the Model object corresponding to each Block,
+        #  and the get_confusion_matrix from the Partition object.
+        expanded_y_true, expanded_y_pred, expanded_weights, expanded_y_true_all = analyze_model(use_case, classes_filter, npkts, n_tree, max_n_leaves, feat_names, classes, all_classes_in_clusters, flow_counts_test_file_path, flow_counts_train_file_path, train_data_dir_path, test_data_dir_path)
         pred_df = pd.DataFrame({'True_Label_Cluster': expanded_y_true, 'Pred_Label_Cluster': expanded_y_pred,
                                 'True_Label_All': expanded_y_true_all, 'Weight_per_packet': expanded_weights})
 
@@ -274,41 +216,22 @@ def get_confusion_matrix(use_case, classes_filter, cluster_list, all_classes_in_
         class_indices = {cls: idx for idx, cls in enumerate(classes)}
         all_classes_in_clusters_indices = {cla: idx for idx, cla in enumerate(all_classes_in_clusters)}
 
-        # Why do we iterate over the classes in the cluster except the last?
-        # Because the last one is the 'Other' class...
+        # Q: Why do we iterate over the classes in the cluster except the last?
+        # A: Because the last one is the 'Other' class...
         for _class in classes[:-1]:
             performance_vals = []
-            # ToDo:filter out already classes not in cluster
+            # filter out already classes not in cluster
             classes_in_cluster_df = pred_df.loc[pred_df['Pred_Label_Cluster'] == classes.index(_class)]
             for cla in all_classes_in_clusters:
                 if cla in classes:
                     cla_ind = class_indices[cla]
                     label_column = 'True_Label_Cluster'
                     cluster_of_cls = cluster_id
-                    # # metric_val = sum(pred_df[((pred_df['True_Label_Cluster'] == cla_ind) & (pred_df['Pred_Label_Cluster'] == cla_in_clu_ind))]['Weight_per_packet'].to_list())
-                    # metric_val = classes_in_cluster_df.loc[
-                    #                 (pred_df['True_Label_Cluster'] == cla_ind),
-                    #                 'Weight_per_packet'
-                    # ].sum()
-                    # performance_vals.append(metric_val)
-                    # cluster_perf_dict[cluster_of_cls] += metric_val
                 else:
                     cla_ind = all_classes_in_clusters_indices[cla]
                     label_column = 'True_Label_All'
-                    cluster_of_cls = cluster_info_all_classes[cla_ind]
+                    cluster_of_cls = class_to_cluster_map[cla]
 
-                # ToDo: Chaining conditions creates long lines, which are discouraged by PEP8. Some alternatives:
-                #  - metric_val = pred_df.loc[
-                #                 (pred_df['True_Label_Cluster'] == cla_ind) &
-                #                 (pred_df['Pred_Label_Cluster'] == cla_in_clu_ind),
-                #                 'Weight_per_packet'
-                #    ].sum()
-                #  - pred_df.query('True_Label_Cluster == 0 & Pred_Label_Cluster == 0')['Weight_per_packet'].sum()
-                #  - cond1 = pred_df.True_Label_Cluster == cla_ind
-                #    cond2 = pred_df.Pred_Label_Cluster == cla_in_clu_ind
-                #    pred_df[cond1 & cond2]['Weight_per_packet'].sum()
-                #  Also, if you have a DataFrame object, try to use its method (.sum()) instead of .to_list() and sum() which are not implemented in pandas.
-                # metric_val = sum(pred_df[((pred_df['True_Label_All'] == cla_ind) & (pred_df['Pred_Label_Cluster'] == cla_in_clu_ind))]['Weight_per_packet'].to_list())
                 metric_val = classes_in_cluster_df.loc[
                     (pred_df[label_column] == cla_ind),
                     'Weight_per_packet'
@@ -316,14 +239,8 @@ def get_confusion_matrix(use_case, classes_filter, cluster_list, all_classes_in_
                 performance_vals.append(metric_val)
                 cluster_perf_dict[cluster_of_cls] +=  metric_val
 
-            # ToDo: This assignment can be done once after the loop. See that the  dict is initialized outside the loop.
-            #  In general, it is best to find the least amount of code that achieves your goal.
-            # cm_matrix_cluster[str(i)] = cluster_perf_dict.values()
-
             cm_matrix[_class] = performance_vals
         cm_matrix_cluster[str(cluster_id)] = cluster_perf_dict.values()
-    # cm_matrix_cluster = pd.DataFrame(cluster_perf_dict.items())
-
 
     return cm_matrix, cm_matrix_cluster
 
@@ -361,15 +278,17 @@ if __name__ == '__main__':
                                            converters=dict.fromkeys(['Class List', 'Feature List'], literal_converter))
     clusters_best_model_info = clusters_best_model_info.drop(['Unnamed: 0'], axis=1)
     clusters_best_model_info = clusters_best_model_info.set_index('Cluster', drop=True)
-    cluster_list, all_classes_in_clusters, cluster_info_all_classes = get_cluster_details(clusters_best_model_info)
     
     # Get the confusion matrix between the models of the corresponding clusters
     logger.info(f'The analysis starts...')
     try:
+        raise FileNotFoundError
         cm_matrix = pd.read_csv(results_dir_path + '/' + use_case+'_confusion_matrix.csv')
         cm_matrix_cluster = pd.read_csv(results_dir_path + '/' + use_case + '_cm_matrix_cluster.csv')
     except FileNotFoundError:
-        cm_matrix, cm_matrix_cluster = get_confusion_matrix(use_case, classes_filter, cluster_list, all_classes_in_clusters, clusters_best_model_info, flow_counts_test_file_path, flow_counts_train_file_path, train_data_dir_path, test_data_dir_path)
+        cm_matrix, cm_matrix_cluster = get_confusion_matrix(use_case, classes_filter, clusters_best_model_info,
+                                                            flow_counts_test_file_path, flow_counts_train_file_path,
+                                                            train_data_dir_path, test_data_dir_path)
         cm_matrix.to_csv(results_dir_path + '/' + use_case+'_confusion_matrix.csv', index=False)
         cm_matrix_cluster.to_csv(results_dir_path + '/' + use_case + '_cm_matrix_cluster.csv', index=False)
 
@@ -383,6 +302,6 @@ if __name__ == '__main__':
 
     # Order the clusters based on the FP, and F1 scores
     selected_edges = find_with_tsp_selected_edges(cost_FP, cost_F1)
-    clusters_seq = get_cluster_seq(selected_edges, len(cluster_list))
+    clusters_seq = get_cluster_seq(selected_edges, clusters_best_model_info.shape[0])
 
     logger.info(f'The sequence of the clusters is: {clusters_seq}')
