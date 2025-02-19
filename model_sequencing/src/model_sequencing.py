@@ -1,3 +1,4 @@
+import ast
 import collections
 
 import pandas as pd
@@ -11,7 +12,7 @@ import numpy as np
 import gurobipy 
 import logging
 # from setup_logger import logger
-from TSP import TSP_MTZ_Formulation, get_cluster_seq
+from TSP import find_with_tsp_selected_edges, get_cluster_seq
 #ToDo: remove unnecessary imports numpy, sklearn, pyomo, logger
 from ast import literal_eval
 
@@ -43,54 +44,16 @@ def get_cluster_details(cluster_info_df):
     cluster_info_all_classes = []
     cluster_no = 0
     for cl in cluster_info_df['Class List'].to_list():
-        classes_str = cl[2:-2]
-        classes = classes_str.split("', '")
-        cluster_list.append(classes)
-        all_classes_in_clusters.extend(classes)
-        cluster_info_all_classes.extend([cluster_no]*len(classes))
+        # classes_str = cl[2:-2]
+        # classes = classes_str.split("', '")
+        cluster_list.append(cl)
+        all_classes_in_clusters.extend(cl)
+        cluster_info_all_classes.extend([cluster_no]*len(cl))
         cluster_no = cluster_no + 1
     # ToDo: replace cluster_info_all_classes with an individual method that returns the cluster number for a given class.
     # ToDo: all_classes_in_clusters can be returned using the cluster_info_df['Class List'].sum() directly.
     # ToDo: cluster_list can be returned using cluster_info_df['Class List'].to_list()
     return cluster_list, all_classes_in_clusters, cluster_info_all_classes
-
-
-# ToDo: I suggest removing this function.
-def get_final_cluster_info(clusters_best_model_info, logger):
-    '''
-    Function to get the dataframe that holds the information of clusters sequenced
-    '''
-    # Create the df
-    seq_cluster_info = clusters_best_model_info.copy()
-    seq_cluster_info = seq_cluster_info[['Cluster', 'Class List', 'Macro_f1_FL_With_Others']]
-    # seq_cluster_info = seq_cluster_info[seq_cluster_info['Cluster'] != -1]
-    seq_cluster_info['Average_F1_With_Others'] = seq_cluster_info['Macro_f1_FL_With_Others']
-    seq_cluster_info = seq_cluster_info[['Cluster', 'Class List', 'Average_F1_With_Others']]
-
-    cluster_list = seq_cluster_info['Class List'].to_list()
-    n_of_classes = []
-    for cl in cluster_list:
-        cl_list = cl[2:-2].split("', '")
-        n_of_classes.append(int(len(cl_list)))
-    seq_cluster_info['Number_of_classes'] = n_of_classes
-    # 
-    df_temp = pd.DataFrame()
-    # ToDo: the cluster_seq should be a parameter of the function.
-    df_temp['Cluster'] = np.array(clusters_seq)[::-1]
-    seq_cluster_info_w_others = df_temp.merge(right=seq_cluster_info,on='Cluster')
-    #### Generate Other Class
-    ordered_cluster = seq_cluster_info_w_others['Cluster'].to_list()
-    ordered_class_list = seq_cluster_info_w_others['Class List'].to_list()
-    other_classes = []
-    for i in range(0, len(ordered_cluster)):
-        other_list = []
-        for c_list in ordered_class_list[0:i]:
-            other_list.extend(c_list[2:-2].split("', '"))
-        other_classes.append(other_list)
-    seq_cluster_info_w_others['Other_Classes'] = other_classes
-    logger.info(f'Sequenced Clusters information: \n {seq_cluster_info_w_others}')
-    return seq_cluster_info_w_others
-
 
 def get_test_labels_others(IoT_Test, classes_df):
     '''
@@ -278,8 +241,8 @@ def get_confusion_matrix(use_case, classes_filter, cluster_list, all_classes_in_
     cm_matrix = pd.DataFrame()
     # ToDo: why do we need a list comprehension in the below assignment?
     cm_matrix['Classes'] = [i for i in all_classes_in_clusters]
-    # ToDo: a DataFrame has by default an index. Column `Cluster` is unnecessary.
     cm_matrix_cluster = pd.DataFrame()
+    # ToDo: a DataFrame has by default an index. Column `Clusters` is unnecessary.
     # cm_matrix_cluster['Clusters'] = [i for i in range(0, len(cluster_list))]
     ##
 
@@ -287,22 +250,15 @@ def get_confusion_matrix(use_case, classes_filter, cluster_list, all_classes_in_
         npkts = int(clusters_best_model_info.loc[cluster_id]['N_With_Others'])
         n_tree = int(clusters_best_model_info.loc[cluster_id]['Tree_With_Others'])
         max_n_leaves = int(clusters_best_model_info.loc[cluster_id]['N_Leaves_With_Others'])
-        feat_names_str = clusters_best_model_info.loc[cluster_id]['Feats_Names_With_Others']
-        # ToDo: use ast.literal to parse a string formatted list. See run_cluster_analysis:130 for an example.
-        feat_names_str = feat_names_str[2:-2] 
-        feat_names = feat_names_str.split("', '")
+        feat_names = clusters_best_model_info.loc[cluster_id]['Feature List']
+
         classes = cluster_list[cluster_id]
         classes.append('Other')
         # ToDo: once this becomes a function of ModelAnalyzer, you can remove the classes_df.
         #  Since it won't be neeeded in analyze_model.
         classes_df = pd.DataFrame(classes, columns=['class'])
 
-        # ToDo: use dict comprehension instead of for loop. Or use defaultdict from collections.
         cluster_perf_dict = collections.defaultdict(int)
-        # cluster_perf_dict = {cl: 0 for cl in range(0, len(cluster_list))}
-        # cluster_perf_dict = {}
-        # for cl in cm_matrix_cluster['Clusters'].to_list():
-        #     cluster_perf_dict[cl] = 0
         #
         logging.getLogger(f'{use_case}').info(f'The model info: \n {npkts, n_tree, max_n_leaves, feat_names, classes}')
         #
@@ -311,12 +267,8 @@ def get_confusion_matrix(use_case, classes_filter, cluster_list, all_classes_in_
         #  Since we already analysed all models in the previous step, can we avoid re-training in the future?
         expanded_y_true, expanded_y_pred, expanded_weights, expanded_y_true_all = analyze_model(use_case, classes_filter, npkts, n_tree, max_n_leaves, feat_names, classes, classes_df, flow_counts_test_file_path, flow_counts_train_file_path, train_data_dir_path, test_data_dir_path)
         # ToDo: you can build a Df as pd.Dataframe({'True_Label_Cluster': expanded_y_true, 'Pred_Label_Cluster': expanded_y_pred, 'True_Label_All': expanded_y_true_all, 'Weight_per_packet': expanded_weights})
-        pred_df = pd.DataFrame()
-        pred_df['True_Label_Cluster'] = expanded_y_true
-        pred_df['Pred_Label_Cluster'] = expanded_y_pred
-        pred_df['True_Label_All'] = expanded_y_true_all
-        pred_df['Weight_per_packet'] = expanded_weights
-        #
+        pred_df = pd.DataFrame({'True_Label_Cluster': expanded_y_true, 'Pred_Label_Cluster': expanded_y_pred,
+                                'True_Label_All': expanded_y_true_all, 'Weight_per_packet': expanded_weights})
 
         # Precompute indices for classes to avoid repeated .index() calls
         class_indices = {cls: idx for idx, cls in enumerate(classes)}
@@ -376,32 +328,11 @@ def get_confusion_matrix(use_case, classes_filter, cluster_list, all_classes_in_
     return cm_matrix, cm_matrix_cluster
 
 
-# ToDo: remove n_of_clusters. It is not used.
-def normalize_confusion_matrix(cm_matrix_cluster, n_of_clusters):
+def normalize_confusion_matrix(cm_matrix_cluster):
     """
     Function to normalize the confusion matrix
     """
-    # ToDo: remove the code below. There is an efficient way to normalize with Pandas.
-    # cm_matrix_cluster_normalized_df = pd.DataFrame()
-    # cm_matrix_cluster_normalized_df['Clusters'] = cm_matrix_cluster['Clusters'].to_list()
-    # cm_matrix_cluster_normalized_df['Clusters'] = cm_matrix_cluster.index.values.tolist()
-
-    # cm_matrix_cluster['sum'] = cm_matrix_cluster.sum(axis=1)
-
-    # cm_matrix_cluster['sum'] = 0
-    # cluster_list_str = []
-    # for i in range(0, n_of_clusters):
-    #     cm_matrix_cluster['sum'] = cm_matrix_cluster['sum'] + cm_matrix_cluster[str(i)]
-    #     cluster_list_str.append(str(i))
-
-    # for i in range(0, len(cm_matrix_cluster['Clusters'].to_list())):
-    #     cm_matrix_cluster_normalized_df[str(i)] = (cm_matrix_cluster[str(i)] * 100) / sum(
-    #         cm_matrix_cluster[str(i)].to_list())
-
-    cm_matrix_cluster_normalized_df = cm_matrix_cluster.div(cm_matrix_cluster.sum(axis=0), axis=1).mul(100)
-    
-    # return cm_matrix_cluster_normalized_df, cm_matrix_cluster.index.values
-    return cm_matrix_cluster_normalized_df
+    return cm_matrix_cluster.div(cm_matrix_cluster.sum(axis=0), axis=1).mul(100)
 
 
 if __name__ == '__main__':
@@ -418,7 +349,7 @@ if __name__ == '__main__':
     # Parameters necessary for the model sequencing
     flow_counts_train_file_path = config[use_case]['flow_counts_train_file_path'] 
     classes_filter = config[use_case]['classes_filter'] 
-    classes_filter = classes_filter[2:-2].split("', '")
+    classes_filter = ast.literal_eval(classes_filter)
     flow_counts_test_file_path = config[use_case]['flow_counts_test_file_path'] 
     best_models_path = config[use_case]['best_models_per_cluster_path']
     train_data_dir_path = config[use_case]['train_data_dir_path']
@@ -426,11 +357,10 @@ if __name__ == '__main__':
     results_dir_path = config[use_case]['results_dir_path']
     
     # Get the cluster information which is obtained in the previous steps
-    # ToDo: use converters to parse list representations.
-    #  E.g. pass converters=dict.fromkeys(['Class List', 'Feature List'], literal_converter) to pd.read_csv
-    clusters_best_model_info = pd.read_csv(best_models_path)
-    # clusters_best_model_info = clusters_best_model_info.drop(['Unnamed: 0'], axis=1)
-    # clusters_best_model_info = clusters_best_model_info.set_index('Cluster', drop=True)
+    clusters_best_model_info = pd.read_csv(best_models_path,
+                                           converters=dict.fromkeys(['Class List', 'Feature List'], literal_converter))
+    clusters_best_model_info = clusters_best_model_info.drop(['Unnamed: 0'], axis=1)
+    clusters_best_model_info = clusters_best_model_info.set_index('Cluster', drop=True)
     cluster_list, all_classes_in_clusters, cluster_info_all_classes = get_cluster_details(clusters_best_model_info)
     
     # Get the confusion matrix between the models of the corresponding clusters
@@ -442,26 +372,17 @@ if __name__ == '__main__':
         cm_matrix, cm_matrix_cluster = get_confusion_matrix(use_case, classes_filter, cluster_list, all_classes_in_clusters, clusters_best_model_info, flow_counts_test_file_path, flow_counts_train_file_path, train_data_dir_path, test_data_dir_path)
         cm_matrix.to_csv(results_dir_path + '/' + use_case+'_confusion_matrix.csv', index=False)
         cm_matrix_cluster.to_csv(results_dir_path + '/' + use_case + '_cm_matrix_cluster.csv', index=False)
-    # ToDo: remove the normalize_confusion_matrix. It is sufficient with a single pandas line. See the function for more details.
-    # cm_matrix_cluster_normalized_df, cluster_list_str = normalize_confusion_matrix(cm_matrix_cluster, len(cluster_list))
-    cm_matrix_cluster_normalized_df = normalize_confusion_matrix(cm_matrix_cluster, len(cluster_list))
+
+    cm_matrix_cluster_normalized_df = normalize_confusion_matrix(cm_matrix_cluster)
     logger.info(f'Normalized confusion matrix is: ')
-    logger.info(f'{cm_matrix_cluster_normalized_df}')
+    # ToDo: check if tabulate helps to print the DataFrame in a more readable way.
+    logger.info(f'\n{cm_matrix_cluster_normalized_df}')
     
-    # cost_FP = cm_matrix_cluster_normalized_df[cluster_list_str].to_numpy()
     cost_FP = cm_matrix_cluster_normalized_df.values
-    # ToDo: if the above can be a ndarray, then the below as well.
-    # cost_F1 = clusters_best_model_info['Macro_f1_FL_With_Others'].to_list()
     cost_F1 = clusters_best_model_info['Macro_f1_FL_With_Others'].values
+
     # Order the clusters based on the FP, and F1 scores
-    # ToDo: only calls to class constructors should be capitalized.
-    # The number of clusters can be derived from the cost_FP matrix.
-    # solutionObjective, solutionGap, tourRepo, completeResults = TSP_MTZ_Formulation(len(cluster_list), cost_FP, cost_F1, logger)
-    solutionObjective, solutionGap, tourRepo, completeResults = TSP_MTZ_Formulation(cost_FP, cost_F1, logger)
-    clusters_seq = get_cluster_seq(tourRepo, len(cluster_list), logger)
-    # clusters_seq = (2, 0, 1, 3, 4, 5) #UNSW
-    
-    # Get final clustering information after sequencing
-    # ToDo: I suggest to remove the code below, as this code only needs to order.
-    seq_cluster_info_w_others = get_final_cluster_info(clusters_best_model_info, logger)
-    seq_cluster_info_w_others.to_csv(results_dir_path + use_case+'_sequenced_clusters_info.csv')
+    selected_edges = find_with_tsp_selected_edges(cost_FP, cost_F1)
+    clusters_seq = get_cluster_seq(selected_edges, len(cluster_list))
+
+    logger.info(f'The sequence of the clusters is: {clusters_seq}')

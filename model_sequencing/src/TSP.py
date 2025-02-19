@@ -1,15 +1,11 @@
-import collections
-
 import pyomo.environ as pyo
 import numpy as np
 
-# ToDo: if the function runs the TSP, the name should be run_tsp_mtz.
-#  Function names should be lowercase and indicate what they do
-def TSP_MTZ_Formulation(costMatrix_FP, cost_F1, logger):
+def find_with_tsp_selected_edges(costMatrix_FP, cost_F1, print_gap=False):
     '''
     Function to formulate and run TSP to find the optimal sequence of the clusters
     ToDo: explain here the particulars of this TSP_MTZ formulation. In particular, that it does not return a tour.
-        Explain how tourRepo should be interpreted.
+        Explain how selected_edges should be interpreted.
     
     Arguments:
         n: int
@@ -22,12 +18,6 @@ def TSP_MTZ_Formulation(costMatrix_FP, cost_F1, logger):
     '''
     n = costMatrix_FP.shape[0]
 
-    #%
-    # 1 | initialize sets and notations
-    # N = [i for i in range(1,n+1)]
-    # arc_IJ = [(i,j) for i in N for j in N if i!=j]
-    # cost_FP = {(i,j) : costMatrix_FP[i-1][j-1] for (i,j) in arc_IJ}
-    # cost_F1 = {(i) : cost_F1[i-1]/100 for i in range(1,n+1)}
     cost_matrix = np.zeros(shape=(n,n))
     for i in range(n):
         for j in range(n):
@@ -51,9 +41,6 @@ def TSP_MTZ_Formulation(costMatrix_FP, cost_F1, logger):
     # Dummy variable u_i
     model.u = pyo.Var(model.N, within=pyo.NonNegativeIntegers, bounds=(0, n - 1))
 
-    # model.x = pyo.Var(arc_IJ, within=pyo.Binary)
-    # model.u = pyo.Var(N, within=pyo.NonNegativeIntegers,bounds=(0,n-1))
-
     # Cost Matrix cij
     model.c = pyo.Param(model.N, model.M, initialize=lambda model, i, j: cost_matrix[i - 1][j - 1])
 
@@ -65,15 +52,20 @@ def TSP_MTZ_Formulation(costMatrix_FP, cost_F1, logger):
 
     # 5 | define constraints
     def rule_const1(model, i, j):
+        '''
+        this contraint ensures that only one edge is selected between two nodes
+        '''
         if i != j:
             return model.x[i, j] + model.x[j, i] == 1
         else:
             # A rule type function must provide a Pyomo object, so that’s why we had to write a weird else condition.
             return model.x[i, j] - model.x[i, j] == 0
-
     model.const1 = pyo.Constraint(model.N, model.M, rule=rule_const1)
 
     def rule_const2(model, i, j):
+        '''
+        this constraint eliminates the possibility of subtours
+        '''
         if i != j:
             return model.u[i] - model.u[j] + model.x[i, j] * n <= n - 1
         else:
@@ -88,46 +80,32 @@ def TSP_MTZ_Formulation(costMatrix_FP, cost_F1, logger):
     completeResults = solver.solve(model,tee = True)
 
     # # 7 | extract the results
-    solutionObjective = model.objective()
-    tourRepo = []
+    selected_edges = []
     for i in model.x:
         if model.x[i].value > 0:
-            tourRepo.append((i, model.x[i].value))
-            # cluster_pair = str(model.x[i])[2:-1].split(sep=',')
-            # cluster_pair[0] = int(cluster_pair[0])
-            # cluster_pair[1] = int(cluster_pair[1])
-            # logger.info(f'{str(model.x[i]), model.x[i].value, cost_FP[(cluster_pair[1], cluster_pair[0])],cost_F1[cluster_pair[0]]}')
-    solutionGap = (completeResults.Problem._list[0]['Upper bound'] - completeResults.Problem._list[0]['Lower bound']) / completeResults.Problem._list[0]['Upper bound']
+            selected_edges.append((i, model.x[i].value))
 
-    # ToDo: In general, returning many and varied objects is not a good practice.
-    return solutionObjective, solutionGap, tourRepo, completeResults
+    if print_gap:
+        solution_gap = (completeResults.Problem._list[0]['Upper bound'] - completeResults.Problem._list[0]['Lower bound']) / completeResults.Problem._list[0]['Upper bound']
+        print(solution_gap)
+
+    # ToDo: identify when there are multiple optimal solutions and log a warning to the user that only one
+    #  solution is returned.
+
+    return selected_edges
 
 
-def get_cluster_seq(tourRepo, n_of_clusters, logger):
+def get_cluster_seq(selected_edges, n_of_clusters):
     '''
+    ToDo: explain what is done in the for loop to extract the order from the selected_edges.
     Function to get the sequence of the sub-models obtained by the TSP
     '''
-    # ToDo: what does _occ mean? Ocurrences?
-    store_cluster_occ = {cluster_idx:0 for cluster_idx in range(1, n_of_clusters+1)}
-    # for i in range(0, n_of_clusters):
-    #     store_cluster_occ[i] = 0
-    for var in tourRepo:
-        # ToDo: substracting 1 here obscures the logic. It is better to use the cluster index as is and later substract
-        #  one from the final sequence list.
-        # store_cluster_occ[var[0][0]-1] = store_cluster_occ[var[0][0]-1] + 1
-        node = var[0][0]
-        store_cluster_occ[node] += 1
+    store_cluster_occurrences = {cluster_idx:0 for cluster_idx in range(1, n_of_clusters+1)}
+    for edge in selected_edges:
+        node = edge[0][0]
+        store_cluster_occurrences[node] += 1
 
-    # store_cluster_occ = collections.defaultdict(int)
-    # for var in tourRepo:
-    #     store_cluster_occ[var[0][0] - 1] = store_cluster_occ[var[0][0] - 1] + 1
+    clusters_seq = sorted(store_cluster_occurrences, reverse=True, key=store_cluster_occurrences.get)
 
-
-    # ToDo: this is a very convoluted way to get the sequence. What do you think of the below implementation?
-    # clusters_seq = list(dict(sorted(store_cluster_occ.items(), reverse=True, key=lambda item: item[1])).keys())
-    clusters_seq = [item[0] for item in sorted(store_cluster_occ, reverse=True, key=store_cluster_occ.get)]
-    # ToDo: imho, it is a good idea to return the dictionary store_cluster_occ instead.
-    #  And attach it to the Partition class---not yet implemented (see Issue #5).
-
-    logger.info(f'The sequence is: {clusters_seq}')
-    return clusters_seq
+    # our cluster indices are 0-based, so we need to subtract 1 from each index
+    return list(map(lambda x: x - 1, clusters_seq))
