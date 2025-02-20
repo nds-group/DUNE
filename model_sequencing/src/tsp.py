@@ -1,12 +1,13 @@
 import pyomo.environ as pyo
 import numpy as np
 
-def find_with_tsp_selected_edges(costMatrix_FP, cost_F1, print_gap=False):
+def order_blocks_with_tsp(costMatrix_FP, cost_F1, print_gap=False):
     '''
-    Function to formulate and run TSP to find the optimal sequence of the clusters
-    ToDo: explain here the particulars of this TSP_MTZ formulation. In particular, that it does not return a tour.
-        Explain how selected_edges should be interpreted.
-    
+    This function implements a Mixed Integer Linear Programming (MILP) model to solve a modified Traveling Salesman Problem (TSP)
+    to find the optimal sequence of the blocks.
+    The model aims to order clusters such that ML sub-models with a low rate of false positives and a high accuracy are deployed
+    earlier in the sequence by preventing the formation of multiedges between two blocks.
+
     Arguments:
         n: int
             Number of clusters.
@@ -14,7 +15,8 @@ def find_with_tsp_selected_edges(costMatrix_FP, cost_F1, print_gap=False):
             Matrix carrying the False Positive values of clusters.
         cost_F1: np.array
             An array carrying the F1-score of the clusters
-    ToDo: indicate what objects are returned.
+    Return:
+        The list of block indices representing the optimal sequence.
     '''
     n = costMatrix_FP.shape[0]
 
@@ -92,20 +94,33 @@ def find_with_tsp_selected_edges(costMatrix_FP, cost_F1, print_gap=False):
     # ToDo: identify when there are multiple optimal solutions and log a warning to the user that only one
     #  solution is returned.
 
-    return selected_edges
+    def get_cluster_seq(selected_edges, n_of_clusters):
+        '''
+        The TSP problem returs a directed acyclic structure rather than a simple ordered tour.
+        The directionality ensures that node x comes before node y in the sequence.
+        For example, the solver provides, as a solution, the following:
+                (2, 1)-->1.0
+                (2, 3)-->1.0
+                (2, 4)-->1.0
+                (3, 1)-->1.0
+                (4, 1)-->1.0
+                (4, 3)-->1.0
+        This indicates that the x_{2,1} variable is set to 1.0, which means that cluster 2 comes before cluster 1 in
+        the sequence. Cluster 2 should also come before cluster 3 and 4,
+        and cluster 4 should come before cluster 1 and 3.
 
+        This function takes the selected edges and returns the sequence of clusters.
+        '''
+        store_cluster_occurrences = {cluster_idx: 0 for cluster_idx in range(1, n_of_clusters + 1)}
+        for edge in selected_edges:
+            node = edge[0][0]
+            store_cluster_occurrences[node] += 1
 
-def get_cluster_seq(selected_edges, n_of_clusters):
-    '''
-    ToDo: explain what is done in the for loop to extract the order from the selected_edges.
-    Function to get the sequence of the sub-models obtained by the TSP
-    '''
-    store_cluster_occurrences = {cluster_idx:0 for cluster_idx in range(1, n_of_clusters+1)}
-    for edge in selected_edges:
-        node = edge[0][0]
-        store_cluster_occurrences[node] += 1
+        clusters_seq = sorted(store_cluster_occurrences, reverse=True, key=store_cluster_occurrences.get)
 
-    clusters_seq = sorted(store_cluster_occurrences, reverse=True, key=store_cluster_occurrences.get)
+        # our cluster indices are 0-based, so we need to subtract 1 from each index
+        return list(map(lambda x: x - 1, clusters_seq))
 
-    # our cluster indices are 0-based, so we need to subtract 1 from each index
-    return list(map(lambda x: x - 1, clusters_seq))
+    clusters_seq = get_cluster_seq(selected_edges, n)
+
+    return clusters_seq

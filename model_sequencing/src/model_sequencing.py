@@ -6,7 +6,7 @@ import configparser
 import pandas as pd
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
-from TSP import find_with_tsp_selected_edges, get_cluster_seq
+from tsp import order_blocks_with_tsp
 
 def literal_converter(val):
     # replace first val with '' or some other null identifier if required
@@ -282,7 +282,6 @@ if __name__ == '__main__':
     # Get the confusion matrix between the models of the corresponding clusters
     logger.info(f'The analysis starts...')
     try:
-        raise FileNotFoundError
         cm_matrix = pd.read_csv(results_dir_path + '/' + use_case+'_confusion_matrix.csv')
         cm_matrix_cluster = pd.read_csv(results_dir_path + '/' + use_case + '_cm_matrix_cluster.csv')
     except FileNotFoundError:
@@ -301,7 +300,6 @@ if __name__ == '__main__':
     cost_F1 = clusters_best_model_info['Macro_f1_FL_With_Others'].values
 
     # Order the clusters based on the FP, and F1 scores
-    selected_edges = find_with_tsp_selected_edges(cost_FP, cost_F1)
-    clusters_seq = get_cluster_seq(selected_edges, clusters_best_model_info.shape[0])
+    blocks_seq = order_blocks_with_tsp(cost_FP, cost_F1)
 
-    logger.info(f'The sequence of the clusters is: {clusters_seq}')
+    logger.info(f'The sequence of the blocks is: {blocks_seq}')
