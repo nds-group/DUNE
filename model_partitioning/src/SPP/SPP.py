@@ -11,9 +11,7 @@ import itertools
 import operator
 import logging
 
-import os
-
-from SPP.partitioning import generate_partitions_of_set
+from partitioning import generate_partitions_of_set
 
 logging.basicConfig(level=logging.INFO)
 
@@ -54,169 +52,39 @@ def positions_of_ones(binary_array):
     return tuple(index for index, value in enumerate(binary_array) if value == 1)
 
 
-def compute_group_cost_maximize(s_j, W, F=None):
-    """Returns the cost of grouping s_j, provided the per class feature
-    importance matrix, W, and the F1 scores list F. Also provides the set
+def compute_group_gain_c4(block, importance_matrix, score_vector):
+    """Returns the gain of the given block (s_j), provided the per class feature
+    importance matrix, W, and the F1 scores vector F. Also provides the set
     of features leading to such cost.
 
     Parameters
     ----------
-    W: numpy.ndarray
+    importance_matrix: numpy.ndarray
     The importance matrix
-    F: numpy.ndarray
+    score_vector: numpy.ndarray
     The F1 score list of the classes.
-    s_j : numpy.ndarray
+    block : numpy.ndarray
     The considered grouping
 
     Returns
     -------
     numpy.float64
-        The cost of the grouping
+        The gain of the block
     numpy.ndarray
-        The features selected for the grouping
+        The features selected for the given block
     """
-    n_classes = W.shape[0]
-    n_features = W.shape[1]
-    feats = (s_j @ W - np.transpose(np.ones(n_features) * (1 / n_features) * (np.ones(n_classes) @ s_j))) > 0
+    n_classes = importance_matrix.shape[0]
+    n_features = importance_matrix.shape[1]
+    feats = (block @ importance_matrix - np.transpose(np.ones(n_features) * (1 / n_features) * (np.ones(n_classes) @ block))) > 0
     feats = feats.astype(int)
-    cost = (s_j @ (W @ feats) - np.ones(n_features) * (1 / n_features) * (np.ones(n_classes) @ s_j) @ feats)
-    return cost, feats
-
-
-def compute_group_cost_c4(s_j, W, F):
-    """Returns the cost of grouping s_j, provided the per class feature
-    importance matrix, W, and the F1 scores list F. Also provides the set
-    of features leading to such cost.
-
-    Parameters
-    ----------
-    W: numpy.ndarray
-    The importance matrix
-    F: numpy.ndarray
-    The F1 score list of the classes.
-    s_j : numpy.ndarray
-    The considered grouping
-
-    Returns
-    -------
-    numpy.float64
-        The cost of the grouping
-    numpy.ndarray
-        The features selected for the grouping
-    """
-    n_classes = W.shape[0]
-    n_features = W.shape[1]
-    feats = (s_j @ W - np.transpose(np.ones(n_features) * (1 / n_features) * (np.ones(n_classes) @ s_j))) > 0
-    feats = feats.astype(int)
-    cost = n_classes - (s_j @ (W @ feats) - np.ones(n_features) * (1 / n_features) * (np.ones(n_classes) @ s_j) @ feats)
-    f_scores = np.array(list(itertools.compress(F, s_j)))
-    if (sum(s_j) <= 1):
-        f_score_cost = np.max(f_scores)
-    else:
-        f_score_cost = np.ptp(f_scores)
-    cost = cost * f_score_cost
-    return cost, feats
-
-
-def compute_group_gain_c4(s_j, W, F):
-    """Returns the cost of grouping s_j, provided the per class feature
-    importance matrix, W, and the F1 scores list F. Also provides the set
-    of features leading to such cost.
-
-    Parameters
-    ----------
-    W: numpy.ndarray
-    The importance matrix
-    F: numpy.ndarray
-    The F1 score list of the classes.
-    s_j : numpy.ndarray
-    The considered grouping
-
-    Returns
-    -------
-    numpy.float64
-        The cost of the grouping
-    numpy.ndarray
-        The features selected for the grouping
-    """
-    n_classes = W.shape[0]
-    n_features = W.shape[1]
-    feats = (s_j @ W - np.transpose(np.ones(n_features) * (1 / n_features) * (np.ones(n_classes) @ s_j))) > 0
-    feats = feats.astype(int)
-    cost = (s_j @ (W @ feats) - np.ones(n_features) * (1 / n_features) * (np.ones(n_classes) @ s_j) @ feats)
-    f_scores = np.array(list(itertools.compress(F, s_j)))
-    if (sum(s_j) <= 1):
+    cost = (block @ (importance_matrix @ feats) - np.ones(n_features) * (1 / n_features) * (np.ones(n_classes) @ block) @ feats)
+    f_scores = np.array(list(itertools.compress(score_vector, block)))
+    if (sum(block) <= 1):
         f_score_cost = np.max(f_scores)
     else:
         f_score_cost = np.ptp(f_scores)
     cost = cost * (1 /(1 + f_score_cost))
     return cost, feats
-
-
-def compute_group_cost_c4_no_F1(s_j, W, F=None):
-    """Returns the cost of grouping s_j, provided the per class feature
-    importance matrix, W, and the F1 scores list F. Also provides the set
-    of features leading to such cost.
-
-    Parameters
-    ----------
-    W: numpy.ndarray
-    The importance matrix
-    F: numpy.ndarray
-    The F1 score list of the classes.
-    s_j : numpy.ndarray
-    The considered grouping
-
-    Returns
-    -------
-    numpy.float64
-        The cost of the grouping
-    numpy.ndarray
-        The features selected for the grouping
-    """
-    n_classes = W.shape[0]
-    n_features = W.shape[1]
-    feats = (s_j @ W - np.transpose(np.ones(n_features) * (1 / n_features) * (np.ones(n_classes) @ s_j))) > 0
-    feats = feats.astype(int)
-    cost = n_classes - (s_j @ (W @ feats) - np.ones(n_features) * (1 / n_features) * (np.ones(n_classes) @ s_j) @ feats)
-    return cost, feats
-
-
-def compute_group_gain(s_j, W, F=None):
-    """Returns the gain of grouping s_j, provided the per class feature
-    importance matrix, W, and the F1 scores list F. Also provides the set
-    of features leading to such cost.
-
-    Parameters
-    ----------
-    W: numpy.ndarray
-    The importance matrix
-    F: numpy.ndarray
-    The F1 score list of the classes.
-    s_j : numpy.ndarray
-    The considered grouping
-
-    Returns
-    -------
-    numpy.float64
-        The gain of the grouping
-    numpy.ndarray
-        The features selected for the grouping
-    """
-    n_classes = W.shape[0]
-    n_features = W.shape[1]
-    phis = list(map(np.array, itertools.product([0, 1], repeat=n_features)))[1:-1]
-    max_values = np.array(
-        [s_j @ (W @ phi) / (np.ones(n_features) @ phi) for phi in phis])
-    res = np.argmax(max_values)
-    theta = max_values[res]
-    f_scores = np.array(list(itertools.compress(F, s_j)))
-    if (sum(s_j) <= 1):
-        f_score_gain = np.max(f_scores)
-    else:
-        f_score_gain = np.ptp(f_scores)
-    gain = theta * (1 / (1 + f_score_gain))
-    return gain, phis[res]
 
 
 class SPP:
@@ -276,7 +144,7 @@ class SPP:
         self.F = F
         self.classes_list = classes_list
 
-    def compute_costs(self, costf=compute_group_cost_c4):
+    def compute_costs(self, costf=compute_group_gain_c4):
         """Computes, iteratively, the cost of all blocks, i.e., over 2 ** n_classes -1 groupings
         """
         S = list(map(np.array, itertools.product([0, 1], repeat=self.n_classes)))[1:-1]
