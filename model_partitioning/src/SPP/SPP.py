@@ -233,7 +233,7 @@ class SPP:
         self.n_features = n_features
         if weights_df is None:
             if weights_file is None:
-                raise ValueError('Either weights_df or weights_df must be provided')
+                raise ValueError('Either weights_df or weights_file must be provided')
             self.weights_df = pd.read_csv(weights_file)
         else:
             self.weights_df = weights_df
@@ -242,7 +242,7 @@ class SPP:
         self.features_list = list(self.weights_df.drop(columns=['c_name']).columns)
         if f1_df is None:
             if f1_file is None:
-                raise ValueError('Either f1_df or f1_df must be provided')
+                raise ValueError('Either f1_df or f1_file must be provided')
             self.F1_data = pd.read_csv(f1_file).set_index('class').drop(columns=['Unnamed: 0'])
         else:
             self.F1_data = f1_df
@@ -642,72 +642,84 @@ class SPP:
         return total_cost, class_lists, feats_lists
 
 
-    def generate_random_spp_solution(self, n_classes, n_features=15, costf=compute_group_gain_c4):
+    def generate_random_spp_solution(self, n_classes=None, n_features=15, costf=compute_group_gain_c4):
+        """Generate a random solution for the SPP problem
+        Parameters
+        ----------
+        n_classes: int or None
+        overwrites the number of classes that is considered for the set partitioning problem
+        n_features: int
+        the number of features considered for the set partitioning problem
+        costf: function
+        The cost function used to compute the cost/gain. See compute_group_gain_c4() for an example on the structure.
+
+        Return
+        ----------
+        pd.DataFrame: the partition representation in a DataFrame
+        """
+        if n_classes is None:
+            n_classes = self.n_classes
         try:
             assert n_classes <= self.n_classes
         except AssertionError:
-            self.log.error('Number of classes in random solution must be less than number of classes in the SPP object')
+            self.log.error('Number of classes in random solution must not be greater than number of classes in the SPP object')
             exit(1)
-        from random import choice, shuffle, sample, randint
+
+        # this is a lazy import, since this function is not always used
+        from random import shuffle, sample, randint
 
         def encode_int_encoded_partition(partition, n_classes):
             return np.sum([onehot(x, n_classes) for x in partition], axis=0)
 
-        def pick_random_partition(lst):
-            # select n at random
-            n = randint(2, len(lst) - 1)
+        def get_random_partition(n_classes):
+            """
+            Returns a np.ndarray representing a random partition of the SPP---a valid solution.
+            """
+            indices = list(np.arange(1, n_classes + 1))
 
-            # Shuffle the list
-            shuffle(lst)
+            # select number_of_blocks at random
+            number_of_blocks = randint(2, n_classes - 1)
+
+            # Shuffle the list of all possible blocks
+            shuffle(indices)
 
             # Initialize the output lists
-            partitions = []
+            partition = []
 
-            # Generate random lengths for the partitions
-            lengths = sorted(sample(range(0, len(lst)), n - 1))
-            lengths.append(len(lst))
+            # Generate random lengths for each block in the partition
+            lengths = sorted(sample(range(0, n_classes), number_of_blocks - 1))
+            lengths.append(n_classes)
 
-            # Use the lengths to slice the list and create the partitions
+            # Use the lengths to slice the indices list and create the partition
             start = 0
             for end in lengths:
-                partitions.append(lst[start:end])
+                partition.append(indices[start:end])
                 start = end
 
             return np.stack(
-                [encode_int_encoded_partition(partition, len(lst)) for partition in partitions if len(partition) > 0],
+                [encode_int_encoded_partition(partition, n_classes) for partition in partition if len(partition) > 0],
                 axis=0)
 
-        def pick_random_features(n_features, n_partitions):
-            return np.stack([np.random.randint(2, size=n_features) for i in range(n_partitions)])
+        weights = self.weights_df.set_index('c_name').sort_values(by='c_name')
+        # remove unwanted classes
+        weights = weights.loc[~weights.index.isin(self.unwanted_classes)]
+        # select the first n_classes and n_features
+        weights = weights.sort_values(by='c_name').values[:n_classes, :n_features]
 
-        W_df = self.weights_df.set_index('c_name').sort_values(by='c_name')
-        W_df = W_df.loc[~W_df.index.isin(self.unwanted_classes)]
-
-        random_partition = pick_random_partition(list(np.arange(1, n_classes + 1)))
-        # random_feats = pick_random_features(n_features, len(random_partition))
-        W_curr = W_df.sort_values(by='c_name').values[:n_classes, :n_features]
+        random_partition = get_random_partition(n_classes)
         # select features optimally for the given random partition
-        random_feats = [costf(s_j, W_curr, self.F)[1] for s_j in random_partition]
-        part_labels = [[c for mask, c in zip(part, self.classes_list[:n_classes]) if mask == 1] for part in
+        random_feats = [costf(s_j, weights, self.F)[1] for s_j in random_partition]
+
+        class_names = [[c for mask, c in zip(part, self.classes_list[:n_classes]) if mask == 1] for part in
                        random_partition]
-        # print(part_labels)
-        feats_labels = [[c for mask, c in zip(sel, self.features_list) if mask == 1] for sel in random_feats]
+
+        feature_names = [[c for mask, c in zip(sel, self.features_list) if mask == 1] for sel in random_feats]
+
         return pd.DataFrame(
-            {'Cluster': list(range(len(random_partition))), 'Class List': part_labels, 'Feature List': feats_labels})
+            {'Cluster': list(range(len(random_partition))), 'Class List': class_names, 'Feature List': feature_names})
 
 
     def solve_SPP_brute_force(self, costf=compute_group_gain_c4):
-        ## Compute cost for all possible blocks
-        # if self.c is None:
-        #     self.log.warning('Cost is None. Computing using the default cost function...')
-        #     self.compute_costs()
-
-        ## Generate all valid partitions
-        # Helper function to pretty print the partitions
-        def print_partitions(partitions):
-            for partition in partitions:
-                print(partition)
-
         set_elements = list(range(1, self.n_classes + 1))
         all_partitions = generate_partitions_of_set(set_elements)
 
@@ -721,10 +733,5 @@ class SPP:
             total_gain = total_gain * ((self.n_classes - len(partition)) / (self.n_classes - 1))
             all_partitions_gains.append(total_gain)
         index, gain = max(enumerate(all_partitions_gains), key=itemgetter(1))
-
-        # print_partitions(all_partitions)
-        # print(all_partitions_gains)
-        # print(f'Index: {index}, Gain: {gain}')
-        # print(all_partitions[index])
 
         return all_partitions[index], gain
