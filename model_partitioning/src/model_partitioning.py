@@ -6,7 +6,7 @@ import time
 width = os.get_terminal_size().columns
 
 
-from model_partitioning.src.SPP.SPP import SPP
+from SPP.SPP import SPP
 
 if __name__ == '__main__':
     config = configparser.ConfigParser()
