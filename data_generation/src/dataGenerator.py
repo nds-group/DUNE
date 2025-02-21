@@ -6,16 +6,18 @@ import configparser
 import os
 from os import path
 import pandas as pd
-import logging
 import subprocess
 import warnings
+import glob
+from pathlib import Path
 
 class DataGenerator:
-    def __init__(self, use_case, npkt_lists, pcap_folder, label_data_path, logger):
+    def __init__(self, use_case, data_type, npkt_lists, data_path, label_data_path, logger):
         self.logger = logger
         self.use_case = use_case
+        self.data_type = data_type
         self.npkt_lists = npkt_lists
-        self.pcap_folder = pcap_folder
+        self.data_path = data_path
         self.label_data_path = label_data_path
         self.packet_data = None
         warnings.filterwarnings("ignore")
@@ -28,8 +30,7 @@ class DataGenerator:
         and assigning the actual packet- and flow-level features to the Nth packet calculated 
         over the first N packets.
         '''
-        
-        filename_out = f"{result_dir}/{self.use_case}_hybrid_N_{min_number_of_packets}.csv"
+        filename_out = f"{result_dir}/{self.use_case}_{self.data_type}_{filename_in.split('.')[0]}_N_{min_number_of_packets}.csv"
         number_of_pkts_limit = min_number_of_packets
         #===============================Extract flows from packets and calculate features=============================================#
         main_packet_size = {}  # dictionary to store list of packet sizes for each flow (Here key = flowID, value = list of packet sizes)
@@ -68,8 +69,6 @@ class DataGenerator:
         # print("NOW: COMPUTING AND WRITING FLOW FEATURES INTO CSV...")
         header = "Flow ID,ip.len,ip.ttl,tcp.flags.syn,tcp.flags.ack,tcp.flags.push,tcp.flags.fin,tcp.flags.rst,tcp.flags.ece,ip.proto,srcport,dstport,ip.hdr_len,tcp.window_size_value,tcp.hdr_len,udp.length,Min Packet Length,Max Packet Length,Packet Length Mean,Packet Length Total,UDP Len Min,UDP Len Max,Packet Count,Flow IAT Min,Flow IAT Max,Flow IAT Mean,Flow Duration,SYN Flag Count,ACK Flag Count,PSH Flag Count,FIN Flag Count,RST Flag Count,ECE Flag Count,Label,File"
 
-        #TCP Win Size Min,TCP Win Size Max,IP Hdr Len Min,IP Hdr Len Max,TTL Min,TTL Max,TCP Hdr Len Min,TCP Hdr Len Max,
-
         with open(filename_out, "w") as text_file:
             text_file.write(header)
             text_file.write("\n")
@@ -99,7 +98,6 @@ class DataGenerator:
                 dstport =  row[21]     #destination port
                 key = row[22]          #key which is a concatenation of the 5-tuple to identify the flow
                 label = row[23]  
-
                 if key in flow_list:  # check if the packet belongs to already existing flow ?
                     if (len(main_packet_size[key]) < number_of_pkts_limit ):
                         packet_count[key] = packet_count[key] + 1  # increment packet count
@@ -146,7 +144,7 @@ class DataGenerator:
                                 + "," + str(ip_hdr_len) + "," + str(tcp_window_size_value) + "," + str(tcp_hdr_len) + "," + str(udp_length) \
                                 + "," + str(-1) + "," + str(-1) + "," + str(-1) + "," + str(-1) + "," + str(-1) + "," + str(-1) + "," + str(-1) + "," + str(-1) \
                                 + "," + str(-1) + "," + str(-1) + "," + str(-1) + "," + str(-1) + "," + str(-1) + "," + str(-1) + "," + str(-1) + "," + str(-1) \
-                                + "," + str(-1) + "," + str(label) + ',' + str(filename_in)
+                                + "," + str(-1) + "," + str(label) + ',' + str(filename_in.split('.')[0])
                             ##
                             text_file.write(pkt_data)
                             text_file.write("\n")
@@ -212,11 +210,11 @@ class DataGenerator:
                         + "," + str(ip_hdr_len) + "," + str(tcp_window_size_value) + "," + str(tcp_hdr_len) + "," + str(udp_length) \
                         + "," + str(-1) + "," + str(-1) + "," + str(-1) + "," + str(-1) + "," + str(-1) + "," + str(-1) + "," + str(-1) + "," + str(-1) \
                         + "," + str(-1) + "," + str(-1) + "," + str(-1) + "," + str(-1) + "," + str(-1) + "," + str(-1) + "," + str(-1) + "," + str(-1) \
-                        + "," + str(-1) + "," + str(label) + ',' + str(filename_in)
+                        + "," + str(-1) + "," + str(label) + ',' + str(filename_in.split('.')[0])
                         
                     text_file.write(pkt_data)
                     text_file.write("\n")
-
+                    
             print("NOW: COMPUTING FLOW LEVEL FEATURES...")
             # -----------------------------------------------------------------------------------------------------------------------------------------------------------------------
             # Calculate features related to packet size
@@ -259,7 +257,7 @@ class DataGenerator:
                 if(len(main_packet_size[key]) >= min_number_of_packets):
                     string[key] = string[key] + "," + str(min_IAT_ms) + "," + str(max_IAT_ms) + "," + str(avg_iat_in_ms) + "," + str(flow_duration_ms) + "," + str(syn_flag_count[key]) + "," + str(ack_flag_count[key]) + "," + str(push_flag_count[key]) + "," + str(fin_flag_count[key]) + "," + str(rst_flag_count[key]) + "," + str(ece_flag_count[key])
                     string[key] = string[key] + "," + labels[key]
-                    text_file.write(string[key] + ',' + str(filename_in))
+                    text_file.write(string[key] + ',' + str(filename_in.split('.')[0]))
                     text_file.write("\n")
 
     def read_data(self, filename_in):
@@ -339,34 +337,34 @@ class DataGenerator:
         if self.use_case == "TON-IOT":
             self.packet_data = pd.merge(self.packet_data, label_data, on='Flow ID')
 
-    def convert_pcap_to_txt(self):
+    def convert_pcap_to_txt(self, f):
         '''
         The function generates .txt file from pcap traces by 
         extracting packet level features
         '''
-        # Create directory for txt files
-        # os.makedirs(pcap_folder+"/generated_data", exist_ok=True)
 
         # List all .pcap files in the current directory
-        pcap_files = [f for f in os.listdir(f"{self.pcap_folder}/") if f.endswith('.pcap')]
+        # pcap_files = [f for f in os.listdir(f"{self.data_path}/") if ((f.endswith('.pcap') | (f.endswith('.pcapng'))))]
 
-        for f in pcap_files:
-            output_file = os.path.join(f"{self.pcap_folder}/{f}.txt")
+        # for f in pcap_files:
+        output_file = os.path.join(f"{self.data_path}/txt_files/{f}.txt")
+        
+        command = [
+            "tshark", "-r", self.data_path+'/'+f, "-Y", "ip.proto == 6 or ip.proto == 17", "-T", "fields",
+            "-e", "frame.time_relative", "-e", "ip.src", "-e", "ip.dst",
+            "-e", "tcp.srcport", "-e", "tcp.dstport", "-e", "ip.len",
+            "-e", "tcp.flags.syn", "-e", "tcp.flags.ack", "-e", "tcp.flags.push",
+            "-e", "tcp.flags.fin", "-e", "tcp.flags.reset", "-e", "tcp.flags.ecn",
+            "-e", "ip.proto", "-e", "udp.srcport", "-e", "udp.dstport",
+            "-e", "eth.src", "-e", "eth.dst", "-e", "ip.hdr_len", "-e", "ip.tos",
+            "-e", "ip.ttl", "-e", "tcp.window_size_value", "-e", "tcp.hdr_len", "-e", "udp.length",
+            "-E", "separator=|"
+        ]
+        
+        with open(output_file, "w") as out_file:
+            subprocess.run(command, stdout=out_file, check=True)
             
-            command = [
-                "tshark", "-r", self.pcap_folder+'/'+f, "-Y", "ip.proto == 6 or ip.proto == 17", "-T", "fields",
-                "-e", "frame.time_relative", "-e", "ip.src", "-e", "ip.dst",
-                "-e", "tcp.srcport", "-e", "tcp.dstport", "-e", "ip.len",
-                "-e", "tcp.flags.syn", "-e", "tcp.flags.ack", "-e", "tcp.flags.push",
-                "-e", "tcp.flags.fin", "-e", "tcp.flags.reset", "-e", "tcp.flags.ecn",
-                "-e", "ip.proto", "-e", "udp.srcport", "-e", "udp.dstport",
-                "-e", "eth.src", "-e", "eth.dst", "-e", "ip.hdr_len", "-e", "ip.tos",
-                "-e", "ip.ttl", "-e", "tcp.window_size_value", "-e", "tcp.hdr_len", "-e", "udp.length",
-                "-E", "separator=|"
-            ]
-            
-            with open(output_file, "w") as out_file:
-                subprocess.run(command, stdout=out_file, check=True)
+        return f"{f}.txt"
                 
     def get_flow_length(self):
         '''
@@ -378,18 +376,39 @@ class DataGenerator:
         packet_data['count'] = packet_data.groupby('Flow ID')['Flow ID'].transform('count')
         packet_data = packet_data[['Flow ID', 'label', 'count']]
         packet_data = packet_data.drop_duplicates(subset=['Flow ID'])
-        packet_data.to_csv(f"{self.pcap_folder}/{self.use_case}_flow_length.csv")    
+        packet_data.to_csv(f"{self.data_path}/{self.use_case}_flow_length.csv")    
                 
     def convert_txt_to_packet_data(self, f):
         '''
         The function generates packet-level data and label all the packets
         '''
-        self.read_data(f"{self.pcap_folder}/{f}")   
+        self.read_data(f"{self.data_path}/txt_files/{f}")   
         label_data_df = pd.read_csv(self.label_data_path)
         self.label_data(label_data_df)
-        self.packet_data.to_csv(f"{self.pcap_folder}/{f}.csv")
+        self.packet_data.to_csv(f"{self.data_path}/csv_files/{f}.csv")
         self.get_flow_length()
+        
+        return f"{f}.csv"
                 
     def generate_data(self, f):
         for n in self.npkt_lists:
-            self.get_hybrid_data(n, f, self.packet_data, self.pcap_folder)
+            self.get_hybrid_data(n, f, self.packet_data, f"{self.data_path}/hybrid_data")
+            
+    def merge_data(self):
+        # Iterate over the values of N
+        for n in self.npkt_lists:
+            # Create a list to store the data frames
+            dfs = []
+            # Find all hybrid data files to merge
+            filenames = glob.glob(f"{self.data_path}/hybrid_data/*_{n}.csv")
+            # Iterate over the files
+            for filename in filenames:
+                df = pd.read_csv(filename)  # Load the file
+                dfs.append(df)
+
+            # Concatenate the data frames
+            merged_df = pd.concat(dfs)
+
+            # Save the merged data frame to a CSV file
+            output_filename = f"{self.data_path}/hybrid_data/{self.use_case}_{self.data_type}_{n}.csv"
+            merged_df.to_csv(output_filename, index=False)
