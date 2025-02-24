@@ -24,23 +24,13 @@ if __name__ == '__main__':
     test_classes_list = ast.literal_eval(config['TEST']['test_classes_list'])
     test_classes_list.sort()
 
-    spp = SPP(n_classes=n_classes, n_features=n_features, unwanted_classes=unwanted_classes, name=use_case,
+    spp = SPP(n_classes=n_classes, n_features=n_features, unwanted_classes=unwanted_classes, use_case=use_case,
               weights_file=weights_file, fix_level=fix_level, f1_file=f1_file)
-    ## Compute the average time for group cost computation
-    # elapsed_times = []
-    # for i in tqdm(range(100))   :
-    #     s_j = np.random.randint(2, size=n_classes)
-    #     start = time.time()
-    #     compute_group_gain(s_j, spp.W, spp.F)
-    #     end = time.time()
-    #     elapsed_times.append(end - start)
-    # print(f'Elapsed time: {sum(elapsed_times)/len(elapsed_times)} s')
 
     ## Solve with Heuristic and compute time
     elapsed_times = []
     start = time.time()
-    # spp.solve_SPP_with_heuristic_v2(save=False, plot_gain=True, print_console=True, gain_f=compute_group_cost_c4)
-    spp.solve_SPP_with_heuristic(save=False, plot_gain=False, print_console=True)
+    spp.solve_SPP_with_heuristic(save=False, show_plot_gain=False, print_console=True)
     end = time.time()
     elapsed_times.append(end - start)
     print(f'Elapsed time: {sum(elapsed_times) / len(elapsed_times)} s')

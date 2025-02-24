@@ -52,7 +52,7 @@ def positions_of_ones(binary_array):
     return tuple(index for index, value in enumerate(binary_array) if value == 1)
 
 
-def compute_group_gain_c4(block, importance_matrix, score_vector):
+def get_block_gain(block, importance_matrix, score_vector):
     """Returns the gain of the given block (s_j), provided the per class feature
     importance matrix, W, and the F1 scores vector F. Also provides the set
     of features leading to such cost.
@@ -87,16 +87,111 @@ def compute_group_gain_c4(block, importance_matrix, score_vector):
     return cost, feats
 
 
+def solve_SPP_with_ILP(spp, obj_function, minimize=True, save=False):
+    """Finds a solution to the SPP using an Integer Linear Programming (ILP) approach.
+    The objective function must be linear.
+    Parameters
+    ----------
+    spp: SPP
+    the set partitioning problem object
+    obj_function: function
+    The objective function used to compute the cost/gain. Make sure it is linear.
+
+    Return
+    ----------
+    np.ndarray: an array with the cost/gain of each possible block
+    list: the list of onehot representations of the features selected for each block
+    """
+
+    spp.log.warning('To solve the SPP as an ILP, make sure the cost/gain function is linear.')
+
+    def compute_costs(obj_function):
+        """Computes, iteratively, the cost of all blocks, i.e., over 2 ** n_classes -1 groupings
+        """
+        # we don't want to consider the empty set or the full set
+        blocks = list(map(np.array, itertools.product([0, 1], repeat=spp.n_classes)))[1:-1]
+        costs = np.zeros(len(blocks))
+        features = []
+        for block_index, block in enumerate(tqdm(blocks)):
+            costs[block_index], feat = obj_function(block, spp.feature_importance, spp.f1_scores)
+            features.append(feat)
+        return costs, features
+
+    # pre-compute the costs/gain
+    cost_values, selected_features = compute_costs(obj_function)
+
+    # cost_values = [obj_function(np.array(onehot(i + 1, spp.n_classes)), spp.feature_importance, spp.f1_scores)[0] for i in range(spp.n_classes)]
+    if minimize:
+        objective = pulp.LpMinimize
+    else:
+        objective = pulp.LpMaximize
+
+
+    possible_partitions = list(map(tuple, itertools.product([0, 1], repeat=spp.n_classes)))[1:-1]
+    x = pulp.LpVariable.dicts('part', possible_partitions, lowBound=0, upBound=1, cat=pulp.LpInteger)
+    part_model = pulp.LpProblem('Part_Model', objective)
+    part_model += pulp.lpSum((cost_values[i] * x[part] for i, part in enumerate(possible_partitions)))
+
+    part_model += (
+        pulp.lpSum([x[part] for part in possible_partitions]) <= spp.n_classes - 1,
+        "Maximum_number_of_partitions",
+    )
+
+    for i in range(spp.n_classes):
+        part_model += (
+            pulp.lpSum([x[part] for part in possible_partitions if part[i] == 1]) == 1,
+            f"Must_include_{onehot(i + 1, spp.n_classes)}",
+        )
+    part_model.solve(solver=pulp.apis.PULP_CBC_CMD(threads=1, msg=False))
+
+    partition = []
+    for part in possible_partitions:
+        if x[part].value() == 1.0:
+            partition.append(list(part))
+
+    solution_dict = {i: {'classes': [], 'features': []} for i in range(len(partition))}
+
+    for i, part in enumerate(partition):
+        part_labels = [c for mask, c in zip(part, spp.classes_list) if mask == 1]
+        solution_dict[i]['classes'] = part_labels
+
+    clusters = [sum([2 ** i for i, val in enumerate(reversed(part)) if val == 1]) for part in possible_partitions if
+                x[part].value() == 1.0]
+
+    costs = [spp.cost_function[id - 1] for id in clusters]
+    cluster_feats = [selected_features[id - 1] for id in clusters]
+    accum = 0
+
+    for i, item in enumerate(cluster_feats):
+        feats_labels = [f for mask, f in zip(item, spp.features_list) if mask == 1]
+        accum = accum + len(feats_labels)
+        solution_dict[i]['features'] = feats_labels
+
+    spp.log.info('The ILP Solution:')
+    for cluster, cluster_data in solution_dict.items():
+        spp.log.info('Cluster %i classes: %s', cluster, cluster_data['classes'])
+        spp.log.info('Cluster %i features: %s', cluster, cluster_data['features'])
+
+    spp.log.debug(f'Average number of features: {accum / len(cluster_feats)}')
+
+    if save:
+        dst_path = f'{spp.use_case_name}_SPP_solution_{time.strftime("%Y%m%d_%H%M%S")}.csv'
+        sol_df = spp.cluster_sol_to_dataframe(partition, cluster_feats)
+        sol_df.to_csv(dst_path)
+        spp.log.info('Saved solution to %s', dst_path)
+
+    return pulp.value(part_model.objective), solution_dict
+
 class SPP:
-    W = None
-    F = None
+    feature_importance = None
+    f1_scores = None
     classes_list = None
 
-    def __init__(self, n_classes, n_features, unwanted_classes, name, weights_file=None, test_classes_list=None,
+    def __init__(self, n_classes, n_features, unwanted_classes, use_case, weights_file=None, classes_subset=None,
                  fix_level=None, weights_df=None, f1_file=None, f1_df=None):
         self.fix_level = fix_level
         self.log = logging.getLogger(self.__class__.__name__)
-        self.use_case_name = name
+        self.use_case_name = use_case
         self.n_classes = n_classes
         self.n_features = n_features
         if weights_df is None:
@@ -106,7 +201,7 @@ class SPP:
         else:
             self.weights_df = weights_df
         self.unwanted_classes = unwanted_classes
-        self.test_classes_list = test_classes_list
+        self.classes_subset = classes_subset
         self.features_list = list(self.weights_df.drop(columns=['c_name']).columns)
         if f1_df is None:
             if f1_file is None:
@@ -114,182 +209,94 @@ class SPP:
             self.F1_data = pd.read_csv(f1_file).set_index('class').drop(columns=['Unnamed: 0'])
         else:
             self.F1_data = f1_df
-        self.feature_cost = (1 / n_features) * (
+
+
+        self.feature_cost = self._get_feature_cost(n_features)
+        self.precomputed_gains = None
+
+        self.weights_df = self.weights_df.set_index('c_name')
+        if classes_subset:
+            self.classes_list = self.classes_subset
+            self.feature_importance = self.weights_df.loc[self.classes_list].values[:, :self.n_features]
+            self.f1_scores = self.F1_data.loc[self.classes_list].sort_values(by='class')[
+                'f1_score'].to_list()
+        else:
+            weights_df = self.weights_df # shortens the below lines
+            indices_of_wanted_classes = ~weights_df.index.isin(self.unwanted_classes)
+            feature_importance = weights_df.loc[indices_of_wanted_classes].values[:self.n_classes, :self.n_features]
+            classes_list = weights_df.loc[indices_of_wanted_classes].index.to_list()[:self.n_classes]
+
+            self.F1_data = self.F1_data.loc[indices_of_wanted_classes]
+            self.f1_scores = self.F1_data.sort_values(by='class')['f1_score'].to_list()[:self.n_classes]
+
+            self.feature_importance = feature_importance
+            self.classes_list = classes_list
+
+    def _get_feature_cost(self, n_features):
+        """
+        returns the cost of one (any) feature---the cost of features is uniformly distributed
+        """
+        return (1 / n_features) * (
                 np.ones(n_features) * (np.ones(self.n_classes) @ np.array(onehot(2, self.n_classes)))) @ onehot(1,
                                                                                                                 n_features)
-        self.gains_list = None
-        self.c = None
-        if test_classes_list:
-            self.generate_test_problem_data()
-        else:
-            self.generate_problem_data()
 
-    def generate_test_problem_data(self):
-        self.classes_list = self.test_classes_list
-        W = self.weights_df.set_index('c_name').loc[self.classes_list].values[:, :self.n_features]
-        F = self.F1_data.loc[self.classes_list].sort_values(by='class')[
-            'f1_score'].to_list()
-        self.W = W
-        self.F = F
+    def _encode_key(self, key):
+        # Initialize a variable to store the total sum
+        total_sum = np.zeros((self.n_classes), dtype=int)
 
-    def generate_problem_data(self):
-        pcfi_data = self.weights_df.set_index('c_name')
-        W = pcfi_data.loc[~pcfi_data.index.isin(self.unwanted_classes)].values[:self.n_classes, :self.n_features]
-        classes_list = pcfi_data.loc[~pcfi_data.index.isin(self.unwanted_classes)].index.to_list()[:self.n_classes]
+        # Iterate through the list and add the values in each tuple to the total sum
+        for each_tup in key:
+            if type(each_tup) == int:
+                total_sum = np.sum([total_sum, onehot(each_tup, self.n_classes)], axis=0)
+            else:
+                total_sum = np.sum([total_sum, self._encode_key(each_tup)], axis=0)
 
-        self.F1_data = self.F1_data.loc[~self.F1_data.index.isin(self.unwanted_classes)]
-        F = self.F1_data.sort_values(by='class')['f1_score'].to_list()[:self.n_classes]
+        return tuple(total_sum)
 
-        self.W = W
-        self.F = F
-        self.classes_list = classes_list
-
-    def compute_costs(self, costf=compute_group_gain_c4):
-        """Computes, iteratively, the cost of all blocks, i.e., over 2 ** n_classes -1 groupings
+    def cluster_sol_to_dataframe(self, partition, cluster_feats):
         """
-        S = list(map(np.array, itertools.product([0, 1], repeat=self.n_classes)))[1:-1]
-        c = np.zeros(len(S))
-        feats = []
-        for j, s_j in enumerate(tqdm(S)):
-            c[j], feat = costf(s_j, self.W, self.F)
-            feats.append(feat)
-        self.c = c
-        self.feats = feats
-
-    def solve_SPP_with_ILP(self, minimize=True, save=False):
-        if self.c is None:
-            self.log.warning('Cost is None. Computing using the default cost function...')
-            self.compute_costs()
-        if minimize:
-            objective = pulp.LpMinimize
-        else:
-            objective = pulp.LpMaximize
-
-        possible_partitions = list(map(tuple, itertools.product([0, 1], repeat=self.n_classes)))[1:-1]
-        x = pulp.LpVariable.dicts('part', possible_partitions, lowBound=0, upBound=1, cat=pulp.LpInteger)
-        part_model = pulp.LpProblem('Part_Model', objective)
-        part_model += pulp.lpSum((self.c[i] * x[part] for i, part in enumerate(possible_partitions)))
-
-        part_model += (
-            pulp.lpSum([x[part] for part in possible_partitions]) <= self.n_classes - 1,
-            "Maximum_number_of_partitions",
-        )
-
-        for i in range(self.n_classes):
-            part_model += (
-                pulp.lpSum([x[part] for part in possible_partitions if part[i] == 1]) == 1,
-                f"Must_include_{onehot(i + 1, self.n_classes)}",
-            )
-        part_model.solve(solver=pulp.apis.PULP_CBC_CMD(threads=1, msg=0))
-
-        partition = []
-        for part in possible_partitions:
-            if x[part].value() == 1.0:
-                partition.append(list(part))
-
-        solution_dict = {i: {'classes': [], 'features': []} for i in range(len(partition))}
-
-        for i, part in enumerate(partition):
-            part_labels = [c for mask, c in zip(part, self.classes_list) if mask == 1]
-            solution_dict[i]['classes'] = part_labels
-            # self.log.info(part_labels)
-            # self.log.debug("ENCODING:", part)
-            # self.log.info()
-
-        clusters = [sum([2 ** i for i, val in enumerate(reversed(part)) if val == 1]) for part in possible_partitions if
-                    x[part].value() == 1.0]
-
-        costs = [self.c[id - 1] for id in clusters]
-        cluster_feats = [self.feats[id - 1] for id in clusters]
-        accum = 0
-
-        for i, item in enumerate(cluster_feats):
-            feats_labels = [f for mask, f in zip(item, self.features_list) if mask == 1]
-            accum = accum + len(feats_labels)
-            solution_dict[i]['features'] = feats_labels
-            # self.log.info(feats_labels)
-            # self.log.debug("ENCODING:", item)
-
-        self.log.info('The ILP Solution:')
-        for cluster, cluster_data in solution_dict.items():
-            self.log.info('Cluster %i classes: %s', cluster, cluster_data['classes'])
-            self.log.info('Cluster %i features: %s', cluster, cluster_data['features'])
-
-        self.log.debug(f'Average number of features: {accum / len(cluster_feats)}')
-
-        if save:
-            dst_path = f'{self.use_case_name}_SPP_solution_{time.strftime("%Y%m%d_%H%M%S")}.csv'
-            sol_df = self.cluster_sol_to_csv(partition, cluster_feats)
-            sol_df.to_csv(dst_path)
-            self.log.info('Saved solution to %s', dst_path)
-
-        return pulp.value(part_model.objective), solution_dict
-
-    def cluster_sol_to_csv(self, partition, cluster_feats):
-        # for part, cluster_feats in zip(partition, cluster_feats):
+        returns the cluster solution in a DataFrame
+        """
         part_labels = [[c for mask, c in zip(part, self.classes_list) if mask == 1] for part in partition]
         feats_labels = [[f for mask, f in zip(item, self.features_list) if mask == 1] for item in cluster_feats]
         cluster_sol = pd.DataFrame({'Cluster': list(range(len(partition))),
                                     'Class List': part_labels,
                                     'Feature List': feats_labels,
-                                    # 'Depth': [-1] * len(partition),
-                                    # 'Tree': [-1] * len(partition),
-                                    # 'Feats': [-1] * len(partition)
                                     })
 
         self.log.debug(f'Cluster sol to csv: {cluster_sol}')
         return cluster_sol
 
-    def solve_SPP_with_heuristic(self, gain_f=compute_group_gain_c4, plot_gain=True, save=False, print_console=False):
-        distances = np.zeros(self.n_classes-1)
-        clusters_list = set(range(1, self.n_classes + 1))
-        clusters_onehot_list = [onehot(x, self.n_classes) for x in clusters_list]
+    def solve_SPP_with_heuristic(self, gain_function=get_block_gain, show_plot_gain=True, save=False, print_console=False):
+        max_number_of_clusters = self.n_classes - 1
+        distances = np.zeros(max_number_of_clusters)
+        # it is important that the current_clusters_set are a set, since we will be adding and removing elements
+        current_clusters_set = set(range(1, max_number_of_clusters)) # the worst case scenario is having a class per cluster
 
-        gain_dict = {key: gain_f(np.array(key_onehot), self.W, self.F) for key, key_onehot in
-                     zip(clusters_list, clusters_onehot_list)}
+        gain_map = {}
+        clusters_onehot_list = [onehot(cluster_id, max_number_of_clusters) for cluster_id in current_clusters_set]
+        for key, key_onehot in zip(current_clusters_set, clusters_onehot_list):
+            gain_map[key] = gain_function(np.array(key_onehot))
+
         dendogram = {}
-
-        # gain_data_store = gain_dict.copy()
-
-        def encode_key(key):
-            # Initialize a variable to store the total sum
-            total_sum = np.zeros((self.n_classes), dtype=int)
-
-            # Iterate through the list and add the values in each tuple to the total sum
-            for each_tup in key:
-                if type(each_tup) == int:
-                    total_sum = np.sum([total_sum, onehot(each_tup, self.n_classes)], axis=0)
-                else:
-                    total_sum = np.sum([total_sum, encode_key(each_tup)], axis=0)
-
-            return tuple(total_sum)
-
         gains_list = []
-
-        for i in range(self.n_classes - 1):
-            # print('-' * width)
-            # print('')
-            # print(f'Level {self.n_classes - i}')
-            # print('')
-            # print('-' * width)
-            all_pairs = [list(tup) for tup in itertools.combinations(clusters_list, 2)]  # generator with all pairs
-            all_pairs_onehot = [encode_key(x) for x in all_pairs]
+        for cluster_id in range(max_number_of_clusters):
+            all_pairs = [list(tup) for tup in itertools.combinations(current_clusters_set, 2)]  # generator with all pairs
+            all_pairs_onehot = [self._encode_key(pair) for pair in all_pairs]
 
             for key, key_onehot in zip(all_pairs, all_pairs_onehot):
-                # if tuple(key) not in gain_dict:
-                gain_dict[tuple(key)] = gain_f(np.array(key_onehot), self.W, self.F)
-                # gain_data_store[tuple(key)] = gain_dict[tuple(key)]
+                gain_map[tuple(key)] = gain_function(np.array(key_onehot), self.feature_importance, self.f1_scores)
 
-            best_pair = max(gain_dict.items(), key=operator.itemgetter(1))[0]
-            distance = max(gain_dict.items(), key=operator.itemgetter(1))[1][0]
+            best_pair = max(gain_map, key=gain_map.get)[0]
+            distance = max(gain_map, key=gain_map.get)[1][0]
 
             # Remove invalidated elements from data structures
             to_remove_keys = []
             if type(best_pair) == int: best_pair = [best_pair]
             for elem in best_pair:
-                gain_dict.pop(elem, None)
-                if elem in clusters_list: clusters_list.remove(elem)
-                for key in list(gain_dict.keys()):
+                gain_map.pop(elem, None)
+                if elem in current_clusters_set: current_clusters_set.remove(elem)
+                for key in list(gain_map.keys()):
                     if key == best_pair:
                         to_remove_keys.append(key)
                     if type(key) == int:
@@ -299,71 +306,66 @@ class SPP:
                         if elem in key:
                             to_remove_keys.append(key)
             for k in to_remove_keys:
-                gain_dict.pop(k, None)
+                gain_map.pop(k, None)
 
-            # add to the cluster list
-            distances[i] = distance
-            clusters_list.add(tuple(best_pair))
+            # add to the set of current_clusters_set the new cluster
+            distances[cluster_id] = distance
+            current_clusters_set.add(tuple(best_pair))
 
             # Compute the total gain for the current level
             gain = 0
             features_dict = {}
-            for cluster in clusters_list:
-                gain_delta, cluster_features = gain_f(encode_key([cluster]), self.W, self.F)
+            for cluster in current_clusters_set:
+                gain_delta, cluster_features = gain_function(self._encode_key([cluster]), self.feature_importance, self.f1_scores)
                 gain += gain_delta
                 features_dict[cluster] = cluster_features
-            compactness = ((self.n_classes - len(clusters_list))/(self.n_classes - 1))
+            compactness = ((self.n_classes - len(current_clusters_set))/(max_number_of_clusters))
             total_gain = gain * compactness
             gains_list.append(total_gain)
 
             # Store the clusters for given level
-            dendogram[i] = (clusters_list.copy(), features_dict.copy())
-
-            # print(f'Best pair: {best_pair}')
-            # print(f'Clusters: {clusters_list}')
-            # print(f'Gain dict: {gain_dict}    ')
-            # print('')
+            dendogram[cluster_id] = (current_clusters_set.copy(), features_dict.copy())
 
         best_level = np.argmax(np.array(gains_list))
         best_total_gain = gains_list[best_level]
-        # print(f'Best level: {self.n_classes - best_level}')
-        # print(f'Best gain: {best_total_gain}')
 
         # If specific level was set, override the best level
         if self.fix_level:
             best_level = self.n_classes - self.fix_level
             best_total_gain = gains_list[best_level]
-            # print(f'Warning: level was fixed at {self.fix_level}, the gain is {best_total_gain}')
-        # print(f'The clusters are:')
+            self.log.warning(f'The level was fixed at {self.fix_level}, the gain is {best_total_gain}')
+
         partitions_list = []
         features_list = []
+        # ToDo: simplify this. It is not readable.
         clusters_data = ((k, list(dendogram[best_level][0])[k], dendogram[best_level][1][list(dendogram[best_level][0])[k]]) for k in range(len(dendogram[best_level][0])))
+
         for item in clusters_data:
             j, cluster_classes, cluster_feats = item
-            partitions_list.append(encode_key([cluster_classes]))
+            partitions_list.append(self._encode_key([cluster_classes]))
             features_list.append(cluster_feats)
-            # print(f'\t[{j}]:{cluster_classes} \t features mask:{cluster_feats}')
 
         dst_path = f'{self.use_case_name}_SPP_solution_LEVEL_{best_level}_{time.strftime("%Y%m%d_%H%M%S")}.csv'
-        sol_df = self.cluster_sol_to_csv(partitions_list, features_list)
+        sol_df = self.cluster_sol_to_dataframe(partitions_list, features_list)
         if print_console:
             print(tabulate(sol_df, headers = 'keys', tablefmt = 'psql'))
-            # print(f'Distances array: {distances}')
-            # plt.plot(np.arange(self.n_classes - 1), distances)
-            # plt.show()
+
         if save:
             self.log.info('Saved solution to %s', dst_path)
             sol_df.to_csv(dst_path)
 
-        if plot_gain:
-            plt.plot(np.arange(self.n_classes, 1, -1), gains_list)
-            plt.xlabel('Level')
-            plt.ylabel('Total Gain')
-            plt.xlim(self.n_classes, 2)
-            plt.xticks(np.arange(self.n_classes, 1, -1))
-            plt.show()
-        self.gains_list = gains_list
+        if show_plot_gain:
+            self.plot_gain(gains_list)
+        self.precomputed_gains = gains_list
         return sol_df
+
+    def plot_gain(self, gains_list):
+        plt.plot(np.arange(self.n_classes, 1, -1), gains_list)
+        plt.xlabel('Level')
+        plt.ylabel('Total Gain')
+        plt.xlim(self.n_classes, 2)
+        plt.xticks(np.arange(self.n_classes, 1, -1))
+        plt.show()
 
     def solve_mock_SPP_with_heuristic(self):
         n = 5
@@ -415,8 +417,6 @@ class SPP:
             print(f'Gain dict: {gain_dict}')
             print('')
 
-
-
     def encode_cluster_solution(self, cluster_info, costf='C4'):
         W_df = self.weights_df.set_index('c_name').sort_values(by='c_name')
         W_df = W_df.loc[~W_df.index.isin(self.unwanted_classes)]
@@ -447,7 +447,7 @@ class SPP:
             cluster_class_encoding = np.sum([onehot(idx + 1, n_classes) for idx in cluster_class_idx], axis=0)
             class_lists.append(cluster_class_encoding)
 
-            f_scores = np.array(list(itertools.compress(self.F, cluster_class_encoding)))
+            f_scores = np.array(list(itertools.compress(self.f1_scores, cluster_class_encoding)))
             if (sum(cluster_class_encoding) <= 1):
                 f_score_cost = np.max(f_scores)
             else:
@@ -510,7 +510,7 @@ class SPP:
         return total_cost, class_lists, feats_lists
 
 
-    def generate_random_spp_solution(self, n_classes=None, n_features=15, costf=compute_group_gain_c4):
+    def generate_random_spp_solution(self, n_classes=None, n_features=15, costf=get_block_gain):
         """Generate a random solution for the SPP problem
         Parameters
         ----------
@@ -576,7 +576,7 @@ class SPP:
 
         random_partition = get_random_partition(n_classes)
         # select features optimally for the given random partition
-        random_feats = [costf(s_j, weights, self.F)[1] for s_j in random_partition]
+        random_feats = [costf(s_j, weights, self.f1_scores)[1] for s_j in random_partition]
 
         class_names = [[c for mask, c in zip(part, self.classes_list[:n_classes]) if mask == 1] for part in
                        random_partition]
@@ -587,7 +587,7 @@ class SPP:
             {'Cluster': list(range(len(random_partition))), 'Class List': class_names, 'Feature List': feature_names})
 
 
-    def solve_SPP_brute_force(self, costf=compute_group_gain_c4):
+    def solve_SPP_brute_force(self, costf=get_block_gain):
         set_elements = list(range(1, self.n_classes + 1))
         all_partitions = generate_partitions_of_set(set_elements)
 
@@ -596,7 +596,7 @@ class SPP:
         for partition in all_partitions_onehot:
             total_gain = 0
             for block in partition:
-                gain, feats = costf(block, self.W, self.F)
+                gain, feats = costf(block, self.feature_importance, self.f1_scores)
                 total_gain += gain
             total_gain = total_gain * ((self.n_classes - len(partition)) / (self.n_classes - 1))
             all_partitions_gains.append(total_gain)
