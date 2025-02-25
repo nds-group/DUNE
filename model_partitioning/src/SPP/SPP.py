@@ -367,56 +367,6 @@ class SPP:
         plt.xticks(np.arange(self.n_classes, 1, -1))
         plt.show()
 
-    def solve_mock_SPP_with_heuristic(self):
-        n = 5
-        clusters_list = list(range(1, n + 1))
-        gain_map = {key: 0 for key in clusters_list}
-        def compute_nested_sum(tuple_list):
-            # Initialize a variable to store the total sum
-            total_sum = 0
-
-            # Iterate through the list and add the values in each tuple to the total sum
-            for each_tup in tuple_list:
-                if type(each_tup) == int:
-                    total_sum += each_tup
-                else:
-                    total_sum += compute_nested_sum(each_tup)
-
-            return total_sum
-
-        for i in range(n-1):
-            # print('-' * width)
-            # print(f'Level {n-i}')
-            # print('-' * width)
-            all_pairs = (list(tup) for tup in itertools.combinations(clusters_list, 2)) #  generator with all pairs
-            for key in all_pairs:
-                gain_map[tuple(key)] = compute_nested_sum(key)
-
-
-            best_pair = max(gain_map, key=gain_map.get)
-            clusters_list.append(best_pair)
-            to_remove_keys = []
-            for elem in best_pair:
-                gain_map.pop(elem)
-                if elem in clusters_list: clusters_list.remove(elem)
-                for key in list(gain_map.keys()):
-                    if key == best_pair:
-                        continue
-                    if type(key) == int:
-                        if elem == key:
-                            to_remove_keys.append(key)
-                    else:
-                        if elem in key:
-                            to_remove_keys.append(key)
-
-            for k in to_remove_keys:
-                gain_map.pop(k, None)
-
-            print(f'Best pair: {best_pair}')
-            print(f'Clusters: {clusters_list}')
-            print(f'Gain dict: {gain_map}')
-            print('')
-
     def encode_cluster_solution(self, cluster_info, costf='C4'):
         W_df = self.weights_df.set_index('c_name').sort_values(by='c_name')
         W_df = W_df.loc[~W_df.index.isin(self.unwanted_classes)]
