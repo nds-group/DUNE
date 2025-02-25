@@ -336,7 +336,7 @@ class SPP:
 
         if save:
             self.log.info('Saved solution to %s', dst_path)
-            sol_df.to_csv(dst_path)
+            sol_df.to_csv(dst_path, index=False)
 
         if show_plot_gain:
             self.plot_gain(gains_list)
