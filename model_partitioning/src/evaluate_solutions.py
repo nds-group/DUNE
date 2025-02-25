@@ -1,7 +1,7 @@
 import configparser
 import os
 import pandas as pd
-from SPP.SPP import SPP, literal_converter
+from SPP.spp import SPP, literal_converter
 import ast
 directory_in_str = input("Enter the directory path where the solutions are stored: ")
 directory = os.fsencode(directory_in_str)
