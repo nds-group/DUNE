@@ -30,7 +30,7 @@ if __name__ == '__main__':
     ## Solve with Heuristic and compute time
     elapsed_times = []
     start = time.time()
-    spp.solve_SPP_with_heuristic(save=False, show_plot_gain=False, print_console=True)
+    spp.solve_spp_greedy(save=False, show_plot_gain=False, print_console=True)
     end = time.time()
     elapsed_times.append(end - start)
     print(f'Elapsed time: {sum(elapsed_times) / len(elapsed_times)} s')

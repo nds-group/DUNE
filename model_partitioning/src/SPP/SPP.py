@@ -4,14 +4,12 @@ import numpy as np
 import pandas as pd
 import pulp
 from matplotlib import pyplot as plt
-from operator import itemgetter
 from tabulate import tabulate
 from tqdm import tqdm
 import itertools
-import operator
 import logging
 
-from partitioning import generate_partitions_of_set
+from .partitioning import generate_partitions_of_set
 
 logging.basicConfig(level=logging.INFO)
 
@@ -267,67 +265,53 @@ class SPP:
         self.log.debug(f'Cluster sol to csv: {cluster_sol}')
         return cluster_sol
 
-    def solve_SPP_with_heuristic(self, gain_function=get_block_gain, show_plot_gain=True, save=False, print_console=False):
-        max_number_of_clusters = self.n_classes - 1
-        distances = np.zeros(max_number_of_clusters)
-        # it is important that the current_clusters_set are a set, since we will be adding and removing elements
-        current_clusters_set = set(range(1, max_number_of_clusters)) # the worst case scenario is having a class per cluster
+    def solve_spp_greedy(self, gain_function=get_block_gain, show_plot_gain=True, save=False, print_console=False):
+        # it is important that the current_blocks_set are a set, since we will be adding and removing elements
+        current_blocks_set = set(range(1, self.n_classes+1)) # the worst case scenario is having a class per cluster
 
+        # Compute the gains for the initial blocks
         gain_map = {}
-        clusters_onehot_list = [onehot(cluster_id, max_number_of_clusters) for cluster_id in current_clusters_set]
-        for key, key_onehot in zip(current_clusters_set, clusters_onehot_list):
-            gain_map[key] = gain_function(np.array(key_onehot))
+        blocks_onehot = [onehot(block_id, self.n_classes) for block_id in current_blocks_set]
+        for key, key_onehot in zip(current_blocks_set, blocks_onehot):
+            gain_map[key] = gain_function(np.array(key_onehot), self.feature_importance, self.f1_scores)
 
-        dendogram = {}
-        gains_list = []
-        for cluster_id in range(max_number_of_clusters):
-            all_pairs = [list(tup) for tup in itertools.combinations(current_clusters_set, 2)]  # generator with all pairs
+        # Algorithm 1: SPP greedy algorithm
+        dendogram = {} # ToDo: rename dendogram dictionary, as it is not a really a dendogram
+        gains_list = [] # we cache gains to avoid re-computing them at each level
+        for i in range(self.n_classes - 1):
+            # generator with all pairs
+            all_pairs = [list(tup) for tup in itertools.combinations(current_blocks_set, 2)]
             all_pairs_onehot = [self._encode_key(pair) for pair in all_pairs]
 
             for key, key_onehot in zip(all_pairs, all_pairs_onehot):
                 gain_map[tuple(key)] = gain_function(np.array(key_onehot), self.feature_importance, self.f1_scores)
 
-            best_pair = max(gain_map, key=gain_map.get)[0]
-            distance = max(gain_map, key=gain_map.get)[1][0]
+            best_pair = max(gain_map, key=gain_map.get)
 
             # Remove invalidated elements from data structures
-            to_remove_keys = []
-            if type(best_pair) == int: best_pair = [best_pair]
-            for elem in best_pair:
-                gain_map.pop(elem, None)
-                if elem in current_clusters_set: current_clusters_set.remove(elem)
-                for key in list(gain_map.keys()):
-                    if key == best_pair:
-                        to_remove_keys.append(key)
-                    if type(key) == int:
-                        if elem == key:
-                            to_remove_keys.append(key)
-                    else:
-                        if elem in key:
-                            to_remove_keys.append(key)
-            for k in to_remove_keys:
-                gain_map.pop(k, None)
+            to_remove_keys = self._find_keys_of_invalidated_elements(best_pair, current_blocks_set, gain_map)
+            for block_index in to_remove_keys:
+                gain_map.pop(block_index, None)
 
-            # add to the set of current_clusters_set the new cluster
-            distances[cluster_id] = distance
-            current_clusters_set.add(tuple(best_pair))
+            # add to the set of current_blocks_set the new cluster
+            current_blocks_set.add(tuple(best_pair))
 
             # Compute the total gain for the current level
             gain = 0
             features_dict = {}
-            for cluster in current_clusters_set:
+            for cluster in current_blocks_set:
                 gain_delta, cluster_features = gain_function(self._encode_key([cluster]), self.feature_importance, self.f1_scores)
                 gain += gain_delta
                 features_dict[cluster] = cluster_features
-            compactness = ((self.n_classes - len(current_clusters_set))/(max_number_of_clusters))
+            compactness = ((self.n_classes - len(current_blocks_set))/(self.n_classes - 1))
             total_gain = gain * compactness
             gains_list.append(total_gain)
 
             # Store the clusters for given level
-            dendogram[cluster_id] = (current_clusters_set.copy(), features_dict.copy())
+            dendogram[i] = (current_blocks_set.copy(), features_dict.copy())
 
+        self.precomputed_gains = gains_list
         best_level = np.argmax(np.array(gains_list))
-        best_total_gain = gains_list[best_level]
 
         # If specific level was set, override the best level
         if self.fix_level:
@@ -335,18 +319,18 @@ class SPP:
             best_total_gain = gains_list[best_level]
             self.log.warning(f'The level was fixed at {self.fix_level}, the gain is {best_total_gain}')
 
-        partitions_list = []
-        features_list = []
-        # ToDo: simplify this. It is not readable.
-        clusters_data = ((k, list(dendogram[best_level][0])[k], dendogram[best_level][1][list(dendogram[best_level][0])[k]]) for k in range(len(dendogram[best_level][0])))
-
-        for item in clusters_data:
-            j, cluster_classes, cluster_feats = item
-            partitions_list.append(self._encode_key([cluster_classes]))
-            features_list.append(cluster_feats)
+        # Process the dendogram to extract the solution
+        blocks = []
+        features_lists = []
+        n_blocks = range(len(dendogram[best_level][0]))
+        for block_index in n_blocks:
+            block_classes = list(dendogram[best_level][0])[block_index]
+            block_features = dendogram[best_level][1][block_classes]
+            blocks.append(self._encode_key([block_classes]))
+            features_lists.append(block_features)
 
         dst_path = f'{self.use_case_name}_SPP_solution_LEVEL_{best_level}_{time.strftime("%Y%m%d_%H%M%S")}.csv'
-        sol_df = self.cluster_sol_to_dataframe(partitions_list, features_list)
+        sol_df = self.cluster_sol_to_dataframe(blocks, features_lists)
         if print_console:
             print(tabulate(sol_df, headers = 'keys', tablefmt = 'psql'))
 
@@ -356,8 +340,24 @@ class SPP:
 
         if show_plot_gain:
             self.plot_gain(gains_list)
-        self.precomputed_gains = gains_list
         return sol_df
+
+    def _find_keys_of_invalidated_elements(self, best_pair, current_blocks_set, gain_map):
+        to_remove_keys = []
+        if type(best_pair) == int: best_pair = [best_pair]
+        for elem in best_pair:
+            gain_map.pop(elem, None)
+            if elem in current_blocks_set: current_blocks_set.remove(elem)
+            for key in list(gain_map.keys()):
+                if key == best_pair:
+                    to_remove_keys.append(key)
+                if type(key) == int:
+                    if elem == key:
+                        to_remove_keys.append(key)
+                else:
+                    if elem in key:
+                        to_remove_keys.append(key)
+        return to_remove_keys
 
     def plot_gain(self, gains_list):
         plt.plot(np.arange(self.n_classes, 1, -1), gains_list)
@@ -370,7 +370,7 @@ class SPP:
     def solve_mock_SPP_with_heuristic(self):
         n = 5
         clusters_list = list(range(1, n + 1))
-        gain_dict = {key: 0 for key in clusters_list}
+        gain_map = {key: 0 for key in clusters_list}
         def compute_nested_sum(tuple_list):
             # Initialize a variable to store the total sum
             total_sum = 0
@@ -390,16 +390,16 @@ class SPP:
             # print('-' * width)
             all_pairs = (list(tup) for tup in itertools.combinations(clusters_list, 2)) #  generator with all pairs
             for key in all_pairs:
-                gain_dict[tuple(key)] = compute_nested_sum(key)
+                gain_map[tuple(key)] = compute_nested_sum(key)
 
 
-            best_pair = max(gain_dict.items(), key=operator.itemgetter(1))[0]
+            best_pair = max(gain_map, key=gain_map.get)
             clusters_list.append(best_pair)
             to_remove_keys = []
             for elem in best_pair:
-                gain_dict.pop(elem)
+                gain_map.pop(elem)
                 if elem in clusters_list: clusters_list.remove(elem)
-                for key in list(gain_dict.keys()):
+                for key in list(gain_map.keys()):
                     if key == best_pair:
                         continue
                     if type(key) == int:
@@ -410,11 +410,11 @@ class SPP:
                             to_remove_keys.append(key)
 
             for k in to_remove_keys:
-                gain_dict.pop(k, None)
+                gain_map.pop(k, None)
 
             print(f'Best pair: {best_pair}')
             print(f'Clusters: {clusters_list}')
-            print(f'Gain dict: {gain_dict}')
+            print(f'Gain dict: {gain_map}')
             print('')
 
     def encode_cluster_solution(self, cluster_info, costf='C4'):
