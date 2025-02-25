@@ -224,6 +224,7 @@ class SPP:
             feature_importance = weights_df.loc[indices_of_wanted_classes].values[:self.n_classes, :self.n_features]
             classes_list = weights_df.loc[indices_of_wanted_classes].index.to_list()[:self.n_classes]
 
+            indices_of_wanted_classes = ~self.F1_data.index.isin(self.unwanted_classes)
             self.F1_data = self.F1_data.loc[indices_of_wanted_classes]
             self.f1_scores = self.F1_data.sort_values(by='class')['f1_score'].to_list()[:self.n_classes]
 
