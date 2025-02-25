@@ -13,6 +13,7 @@ plt.rc('text.latex', preamble=r'\usepackage{amsmath,amssymb,amsfonts,bm}')
 from SPP.SPP import SPP, literal_converter
 import re
 
+# ToDo: fix me if needed. This script has become obsolete since #7 was completed.
 if __name__ == '__main__':
     config = configparser.ConfigParser()
     config.read('spp_params.ini')
@@ -55,25 +56,25 @@ if __name__ == '__main__':
                                    converters=dict.fromkeys(['Class List', 'Feature List'], literal_converter))
         cluster_info = cluster_info.reset_index(drop=True).drop(columns=['Unnamed: 0']).set_index('Cluster')
 
-        sol_cost, sol_groups, sol_feats = spp.encode_cluster_solution(cluster_info.loc[0:], costf='C4')
+        sol_cost, sol_groups, sol_feats = spp.encode_cluster_solution(cluster_info.loc[0:])
         random_experiment_c4_costs[exp_id] = sol_cost
-        sol_cost, sol_groups, sol_feats = spp.encode_cluster_solution(cluster_info.loc[0:], costf='C4 (no F1)')
+        sol_cost, sol_groups, sol_feats = spp.encode_cluster_solution(cluster_info.loc[0:])
         random_experiment_c4_noF1_costs[exp_id] = sol_cost
-        sol_cost, sol_groups, sol_feats = spp.encode_cluster_solution(cluster_info.loc[0:], costf='max Theta 7')
+        sol_cost, sol_groups, sol_feats = spp.encode_cluster_solution(cluster_info.loc[0:])
         random_experiment_max_theta_7_costs[exp_id] = sol_cost
-        sol_cost, sol_groups, sol_feats = spp.encode_cluster_solution(cluster_info.loc[0:], costf='max Theta 9')
+        sol_cost, sol_groups, sol_feats = spp.encode_cluster_solution(cluster_info.loc[0:])
         random_experiment_max_theta_9_costs[exp_id] = sol_cost
-        sol_cost, sol_groups, sol_feats = spp.encode_cluster_solution(cluster_info.loc[0:], costf='max Theta')
+        sol_cost, sol_groups, sol_feats = spp.encode_cluster_solution(cluster_info.loc[0:])
         random_experiment_max_theta_costs[exp_id] = sol_cost
-        sol_cost, sol_groups, sol_feats = spp.encode_cluster_solution(cluster_info.loc[0:], costf='max Theta Avg.')
+        sol_cost, sol_groups, sol_feats = spp.encode_cluster_solution(cluster_info.loc[0:])
         random_experiment_max_theta_avg_costs[exp_id] = sol_cost
-        sol_cost, sol_groups, sol_feats = spp.encode_cluster_solution(cluster_info.loc[0:], costf='T7C6')
+        sol_cost, sol_groups, sol_feats = spp.encode_cluster_solution(cluster_info.loc[0:])
         random_experiment_t7c6_costs[exp_id] = sol_cost
-        sol_cost, sol_groups, sol_feats = spp.encode_cluster_solution(cluster_info.loc[0:], costf='T8C6')
+        sol_cost, sol_groups, sol_feats = spp.encode_cluster_solution(cluster_info.loc[0:])
         random_experiment_t8c6_costs[exp_id] = sol_cost
-        sol_cost, sol_groups, sol_feats = spp.encode_cluster_solution(cluster_info.loc[0:], costf='T9C6')
+        sol_cost, sol_groups, sol_feats = spp.encode_cluster_solution(cluster_info.loc[0:])
         random_experiment_t9c6_costs[exp_id] = sol_cost
-        sol_cost, sol_groups, sol_feats = spp.encode_cluster_solution(cluster_info.loc[0:], costf='T4C6')
+        sol_cost, sol_groups, sol_feats = spp.encode_cluster_solution(cluster_info.loc[0:])
         random_experiment_t4c6_costs[exp_id] = sol_cost
 
 
@@ -93,25 +94,25 @@ if __name__ == '__main__':
                                    converters=dict.fromkeys(['Class List', 'Feature List'], literal_converter))
         cluster_info = cluster_info.reset_index(drop=True).drop(columns=['Unnamed: 0']).set_index('Cluster')
 
-        sol_cost, sol_groups, sol_feats = spp.encode_cluster_solution(cluster_info.loc[0:], costf='C4')
+        sol_cost, sol_groups, sol_feats = spp.encode_cluster_solution(cluster_info.loc[0:])
         random_experiment_c4_costs[exp_id] = sol_cost
-        sol_cost, sol_groups, sol_feats = spp.encode_cluster_solution(cluster_info.loc[0:], costf='C4 (no F1)')
+        sol_cost, sol_groups, sol_feats = spp.encode_cluster_solution(cluster_info.loc[0:])
         random_experiment_c4_noF1_costs[exp_id] = sol_cost
-        sol_cost, sol_groups, sol_feats = spp.encode_cluster_solution(cluster_info.loc[0:], costf='max Theta 7')
+        sol_cost, sol_groups, sol_feats = spp.encode_cluster_solution(cluster_info.loc[0:])
         random_experiment_max_theta_7_costs[exp_id] = sol_cost
-        sol_cost, sol_groups, sol_feats = spp.encode_cluster_solution(cluster_info.loc[0:], costf='max Theta 9')
+        sol_cost, sol_groups, sol_feats = spp.encode_cluster_solution(cluster_info.loc[0:])
         random_experiment_max_theta_9_costs[exp_id] = sol_cost
-        sol_cost, sol_groups, sol_feats = spp.encode_cluster_solution(cluster_info.loc[0:], costf='max Theta')
+        sol_cost, sol_groups, sol_feats = spp.encode_cluster_solution(cluster_info.loc[0:])
         random_experiment_max_theta_costs[exp_id] = sol_cost
-        sol_cost, sol_groups, sol_feats = spp.encode_cluster_solution(cluster_info.loc[0:], costf='max Theta Avg.')
+        sol_cost, sol_groups, sol_feats = spp.encode_cluster_solution(cluster_info.loc[0:])
         random_experiment_max_theta_avg_costs[exp_id] = sol_cost
-        sol_cost, sol_groups, sol_feats = spp.encode_cluster_solution(cluster_info.loc[0:], costf='T7C6')
+        sol_cost, sol_groups, sol_feats = spp.encode_cluster_solution(cluster_info.loc[0:])
         random_experiment_t7c6_costs[exp_id] = sol_cost
-        sol_cost, sol_groups, sol_feats = spp.encode_cluster_solution(cluster_info.loc[0:], costf='T8C6')
+        sol_cost, sol_groups, sol_feats = spp.encode_cluster_solution(cluster_info.loc[0:])
         random_experiment_t8c6_costs[exp_id] = sol_cost
-        sol_cost, sol_groups, sol_feats = spp.encode_cluster_solution(cluster_info.loc[0:], costf='T9C6')
+        sol_cost, sol_groups, sol_feats = spp.encode_cluster_solution(cluster_info.loc[0:])
         random_experiment_t9c6_costs[exp_id] = sol_cost
-        sol_cost, sol_groups, sol_feats = spp.encode_cluster_solution(cluster_info.loc[0:], costf='T4C6')
+        sol_cost, sol_groups, sol_feats = spp.encode_cluster_solution(cluster_info.loc[0:])
         random_experiment_t4c6_costs[exp_id] = sol_cost
 
     random_experiments_df = pd.read_csv(f1_analysis_file_path, delimiter=';')
