@@ -497,7 +497,7 @@ class SPP:
             {'Cluster': list(range(len(random_partition))), 'Class List': class_names, 'Feature List': feature_names})
 
 
-    def solve_SPP_brute_force(self, costf=get_block_gain):
+    def solve_spp_brute_force(self, costf=get_block_gain):
         set_elements = list(range(1, self.n_classes + 1))
         all_partitions = generate_partitions_of_set(set_elements)
 
@@ -510,6 +510,8 @@ class SPP:
                 total_gain += gain
             total_gain = total_gain * ((self.n_classes - len(partition)) / (self.n_classes - 1))
             all_partitions_gains.append(total_gain)
-        index, gain = max(enumerate(all_partitions_gains), key=itemgetter(1))
 
+        all_partitions_gains = {idx: gain for idx,gain in enumerate(all_partitions_gains)}
+        index = max(all_partitions_gains, key=all_partitions_gains.get)
+        gain = all_partitions_gains[index]
         return all_partitions[index], gain
