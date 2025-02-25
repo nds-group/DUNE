@@ -367,13 +367,13 @@ class SPP:
         plt.xticks(np.arange(self.n_classes, 1, -1))
         plt.show()
 
-    def encode_cluster_solution(self, cluster_info, costf='C4'):
-        W_df = self.weights_df.set_index('c_name').sort_values(by='c_name')
-        W_df = W_df.loc[~W_df.index.isin(self.unwanted_classes)]
+    def encode_cluster_solution(self, cluster_info):
+        weights = self.weights_df.set_index('c_name').sort_values(by='c_name')
+        weights = weights.loc[~weights.index.isin(self.unwanted_classes)]
         n_classes = len(list(cluster_info['Class List'].explode()))
         n_features = len(list(cluster_info['Feature List'].explode()))
-        pcfi_data_no_idx = W_df.reset_index()
-        pcfi_data_transpose_no_idx = W_df.transpose().reset_index()
+        pcfi_data_no_idx = weights.reset_index()
+        pcfi_data_transpose_no_idx = weights.transpose().reset_index()
 
         try:
             assert n_classes <= self.n_classes
@@ -383,81 +383,40 @@ class SPP:
                 'object')
             exit(1)
 
-        groups_cost = []
-        class_lists = []
-        feats_lists = []
-        # ToDo: refactor and extract the cost functions
+        block_gains = []
+        classes = []
+        features = []
         for cluster_idx, cluster in cluster_info.iterrows():
             cluster_class_list = cluster_info.loc[cluster_idx]["Class List"]
             cluster_features_list = cluster_info.loc[cluster_idx]["Feature List"]
-            cluster_W = W_df.loc[cluster_class_list][cluster_features_list].values
+            cluster_W = weights.loc[cluster_class_list][cluster_features_list].values
 
             # Class list binary encoding
             cluster_class_idx = pcfi_data_no_idx.loc[pcfi_data_no_idx["c_name"].isin(cluster_class_list)].index.values
             cluster_class_encoding = np.sum([onehot(idx + 1, n_classes) for idx in cluster_class_idx], axis=0)
-            class_lists.append(cluster_class_encoding)
+            classes.append(cluster_class_encoding)
 
             f_scores = np.array(list(itertools.compress(self.f1_scores, cluster_class_encoding)))
-            if (sum(cluster_class_encoding) <= 1):
-                f_score_cost = np.max(f_scores)
+            if sum(cluster_class_encoding) <= 1:
+                psi = 1/(1 + np.max(f_scores))
             else:
-                f_score_cost = np.ptp(f_scores)
+                # np.ptp is equivalent to max - min
+                psi = 1/(1 + np.ptp(f_scores))
 
-            # first compute Theta for C4.
-            if 'C4' in costf:
-                # this one is for minimization
-                theta = (np.sum(cluster_W) - self.feature_cost * len(cluster_features_list) * len(cluster_class_list))
-                cost = n_classes - theta
-                # Then if the F1 score is not excluded, e.g., costf != 'C4 (no F1)'. In other words costf == C4
-                if 'C4' == costf:
-                    # Consider the PTP F1 score in the cost
-                    cost = cost * f_score_cost
-            elif ('max Theta 7' == costf):
-                theta = np.sum(cluster_W) / len(cluster_features_list)
-                cost = theta
-            elif ('max Theta 9' == costf):
-                theta = np.sum(cluster_W) / len(cluster_features_list)
-                theta = theta * (1 / (1 + f_score_cost))
-                cost = theta
-            elif 'max Theta' == costf:
-                theta = (np.sum(cluster_W) - self.feature_cost * len(cluster_features_list) * len(cluster_class_list))
-                cost = theta
-            elif 'max Theta Avg.' == costf:
-                theta = (np.sum(cluster_W) - self.feature_cost * len(cluster_features_list) * len(cluster_class_list))
-                cost = theta / cluster_info.shape[0]
-            elif 'T7C6' == costf:
-                theta = np.sum(cluster_W) / len(cluster_features_list)
-                # cost = theta * ((n_classes - cluster_info.shape[0]) / (n_classes - 1))
-                cost = theta
-            elif 'T8C6' == costf:
-                theta = np.sum(cluster_W) * ((self.n_features - len(cluster_features_list)) / (self.n_features - 1))
-                # cost = theta * ((n_classes - cluster_info.shape[0]) / (n_classes - 1))
-                cost = theta
-            elif 'T9C6' == costf:
-                theta = np.sum(cluster_W) * ((self.n_features - len(cluster_features_list)) / (self.n_features - 1))
-                theta = theta * (1 / (1 + f_score_cost))
-                cost = theta
-                # cost = theta * ((n_classes - cluster_info.shape[0]) / (n_classes - 1))
-            elif 'T4C6' == costf:
-                theta = (np.sum(cluster_W) - self.feature_cost * len(cluster_features_list) * len(cluster_class_list))
-                theta = theta * (1 / (1 + f_score_cost))
-                cost = theta
-                # cost = theta * ((n_classes - cluster_info.shape[0]) / (n_classes - 1))
-            else:
-                raise ValueError("Unexpected value for parameter costf. Valid values are: {'C4', 'C4 (no F1), 'C6'}")
+            theta = (np.sum(cluster_W) - self.feature_cost * len(cluster_features_list) * len(cluster_class_list))
+            gain = theta * psi
 
-            groups_cost.append(cost)
+            block_gains.append()
 
             # Features list binary encoding
             cluster_feats_idx = pcfi_data_transpose_no_idx.loc[
                 pcfi_data_transpose_no_idx["index"].isin(cluster_features_list)].index.values
             cluster_feats_encoding = np.sum([onehot(idx + 1, n_features) for idx in cluster_feats_idx], axis=0)
-            feats_lists.append(cluster_feats_encoding)
+            features.append(cluster_feats_encoding)
 
-        total_cost = sum(groups_cost)
-        if 'C6' in costf:
-            total_cost = total_cost * ((n_classes - cluster_info.shape[0]) / (n_classes - 1))
-        return total_cost, class_lists, feats_lists
+        cost = ((n_classes - 1) / (n_classes - cluster_info.shape[0]))
+        objective_value = (1/cost) * sum(block_gains)
+        return objective_value, classes, features
 
 
     def generate_random_spp_solution(self, n_classes=None, n_features=15, costf=get_block_gain):
