@@ -19,7 +19,6 @@ class DataGenerator:
         self.npkt_lists = npkt_lists
         self.data_path = data_path
         self.label_data_path = label_data_path
-        self.packet_data = None
         warnings.filterwarnings("ignore")
         pd.options.mode.chained_assignment = None
 
@@ -73,11 +72,9 @@ class DataGenerator:
             text_file.write(header)
             text_file.write("\n")
         # ==============================================================================================================================#
-            print("NOW: COLLECTING PACKETS INTO FLOWS...")
+            # print("NOW: COLLECTING PACKETS INTO FLOWS...")
             for row in packet_data.itertuples(index=True, name='Pandas'):
                 time = float(row[1])    # timestamp of the packet
-                srcip = row[2]          #src ip
-                dstip = row[3]          #dst ip
                 pktsize = row[4]
                 syn_flag = row[5]
                 ack_flag = row[6]
@@ -89,7 +86,6 @@ class DataGenerator:
                 srcmac = row[12]
                 dstmac = row[13]
                 ip_hdr_len = row[14]
-                ip_tos = row[15]
                 ip_ttl = row[16]
                 tcp_window_size_value = row[17]
                 tcp_hdr_len = row[18]
@@ -111,7 +107,6 @@ class DataGenerator:
                         ttls[key].append(ip_ttl)
                         tcp_hdr_lengths[key].append(tcp_hdr_len)
                         udp_lengths[key].append(udp_length)
-                        # labels[key] = label
                         ##
                         syn_list[key].append(syn_flag) 
                         ack_list[key].append(ack_flag) 
@@ -137,7 +132,7 @@ class DataGenerator:
                             ece_flag_count[key] = ece_flag_count[key] + 1
 
                         last_time[key] = time  # update last time for the flow, to the timestamp of this packet
-                        ##
+                        ## 
                         if (len(main_packet_size[key]) < (number_of_pkts_limit)):
                             pkt_data = key + "," + str(pktsize) + "," + str(ip_ttl) + "," + str(syn_flag) + "," + str(ack_flag) + "," + str(push_flag) \
                                 + "," + str(fin_flag) + "," + str(rst_flag) + "," + str(ece_flag) + "," + str(proto) + "," + str(srcport) + "," + str(dstport) \
@@ -215,7 +210,7 @@ class DataGenerator:
                     text_file.write(pkt_data)
                     text_file.write("\n")
                     
-            print("NOW: COMPUTING FLOW LEVEL FEATURES...")
+            # NOW: COMPUTING FLOW LEVEL FEATURES...
             # -----------------------------------------------------------------------------------------------------------------------------------------------------------------------
             # Calculate features related to packet size
             for key in flow_list:
@@ -236,7 +231,7 @@ class DataGenerator:
                                                 + "," + str(min(udp_lengths[key]))+ "," + str(max(udp_lengths[key])) + "," + str(len(packet_list)) 
 
             # ------------------- ---------------------------------------------------------------------------------------------------------------------------------------------------
-            # Now calculate IAT-related features
+            # Calculate IAT-related features
                 inter_arrival_time_list = main_inter_arrival_time[key]  # a list containing IATs for the flow
                 length = len(inter_arrival_time_list)
                 if length == 0:
@@ -256,7 +251,7 @@ class DataGenerator:
 
                 if(len(main_packet_size[key]) >= min_number_of_packets):
                     string[key] = string[key] + "," + str(min_IAT_ms) + "," + str(max_IAT_ms) + "," + str(avg_iat_in_ms) + "," + str(flow_duration_ms) + "," + str(syn_flag_count[key]) + "," + str(ack_flag_count[key]) + "," + str(push_flag_count[key]) + "," + str(fin_flag_count[key]) + "," + str(rst_flag_count[key]) + "," + str(ece_flag_count[key])
-                    string[key] = string[key] + "," + labels[key]
+                    string[key] = string[key] + "," + str(labels[key])
                     text_file.write(string[key] + ',' + str(filename_in.split('.')[0]))
                     text_file.write("\n")
 
@@ -282,8 +277,7 @@ class DataGenerator:
         ##the new features from either tcp or udp might have some NA which we set to 0
         packet_data["tcp.window_size_value"] = packet_data["tcp.window_size_value"].astype('Int64').fillna(0)
         packet_data["tcp.hdr_len"] = packet_data["tcp.hdr_len"].astype('Int64').fillna(0)
-        # divide by 4 to get values comparable to those in the switch
-        packet_data["tcp.hdr_len"] = packet_data["tcp.hdr_len"]/4
+        packet_data["tcp.hdr_len"] = packet_data["tcp.hdr_len"]/4 # divide by 4 to get values comparable to those in the switch
         packet_data["udp.length"] = packet_data["udp.length"].astype('Int64').fillna(0)
         packet_data["tcp.flags.syn"] = packet_data["tcp.flags.syn"].astype('Int64').fillna(0)
         packet_data["tcp.flags.ack"] = packet_data["tcp.flags.ack"].astype('Int64').fillna(0)
@@ -300,54 +294,54 @@ class DataGenerator:
         packet_data["srcport"] = np.where(((packet_data["ip.proto"] == "6") | (packet_data["ip.proto"] == 6)), packet_data["tcp.srcport"], packet_data["udp.srcport"])
         packet_data["dstport"] = np.where(((packet_data["ip.proto"] == "6") | (packet_data["ip.proto"] == 6)), packet_data["tcp.dstport"], packet_data["udp.dstport"])
         #
-        # packet_data["srcport"] = np.where(packet_data["ip.proto"] == 6, packet_data["tcp.srcport"], packet_data["udp.srcport"])
-        # packet_data["dstport"] = np.where(packet_data["ip.proto"] == 6, packet_data["tcp.dstport"], packet_data["udp.dstport"])
-        # 
+        # packet_data = packet_data.dropna(subset=['srcport'])
+        # packet_data = packet_data.dropna(subset=['dstport'])
         packet_data["srcport"] = packet_data["srcport"].astype('Int64')
         packet_data["dstport"] = packet_data["dstport"].astype('Int64')
         
         #===============================CREATE THE FLOW IDs AND DROP UNWANTED COLUMNS =============================================#
-        # packet_data["ID"] = packet_data["ip.src"].astype(str) + " " + packet_data["ip.dst"].astype(str) + " " + packet_data["srcport"].astype(str) + " " + packet_data["dstport"].astype(str) + " " + packet_data["ip.proto"].astype(str)
         packet_data = packet_data.drop(["tcp.srcport","tcp.dstport","udp.srcport","udp.dstport"],axis=1)
         packet_data = packet_data.reset_index(drop=True)
 
         packet_data["Flow ID"] = packet_data["ip.src"].astype(str) + " " + packet_data["ip.dst"].astype(str) + " " + packet_data["srcport"].astype(str) + " " + packet_data["dstport"].astype(str) + " " + packet_data["ip.proto"].astype(str)
+        
+        return packet_data
 
-        self.packet_data = packet_data
-
-    def label_data(self, label_data):
+    def get_label_data(self, packet_data, label_data):
         '''
         The function that labels all the packets with the  ground truth class
         '''
         if self.use_case == "UNSW":
-            self.packet_data["label"] = [0] * len(self.packet_data)
+            packet_data["label"] = [0] * len(packet_data)
             for i in range(len(label_data)):
-                self.packet_data["label"] = np.where((self.packet_data["eth.src"]==label_data["MAC ADDRESS"][i]), 
-                                                    label_data["List of Devices"][i], self.packet_data["label"])
+                packet_data["label"] = np.where((packet_data["eth.src"]==label_data["MAC ADDRESS"][i]), 
+                                                    label_data["List of Devices"][i], packet_data["label"])
             for i in range(len(label_data)):
-                self.packet_data["label"] = np.where((self.packet_data["eth.dst"] ==label_data["MAC ADDRESS"][i]) & 
-                                                (self.packet_data["eth.src"]=="14:cc:20:51:33:ea"), 
-                                                label_data["List of Devices"][i], self.packet_data["label"])
-            self.packet_data = self.packet_data[self.packet_data['label']!="TPLink Router Bridge LAN (Gateway)"]
-            self.packet_data = self.packet_data[self.packet_data['label']!="0"]
-            self.packet_data = self.packet_data[self.packet_data['label']!="Nest Dropcam"]
-            self.packet_data = self.packet_data[self.packet_data['label']!="MacBook/Iphone"]
-            self.packet_data = self.packet_data.reset_index(drop=True)
+                packet_data["label"] = np.where((packet_data["eth.dst"] ==label_data["MAC ADDRESS"][i]) & 
+                                                (packet_data["eth.src"]=="14:cc:20:51:33:ea"), 
+                                                label_data["List of Devices"][i], packet_data["label"])
+            packet_data = packet_data[packet_data['label']!="TPLink Router Bridge LAN (Gateway)"]
+            packet_data = packet_data[packet_data['label']!="0"]
+            packet_data = packet_data[packet_data['label']!="Nest Dropcam"]
+            packet_data = packet_data[packet_data['label']!="MacBook/Iphone"]
+            packet_data = packet_data.reset_index(drop=True)
             
         if self.use_case == "TON-IOT":
-            self.packet_data = pd.merge(self.packet_data, label_data, on='Flow ID')
+            flow_list = label_data['Flow ID'].to_list()
+            # Keep only the target traffic
+            packet_data = packet_data[packet_data['Flow ID'].isin(flow_list)]
+            flow_id_label_dict = label_data.set_index("Flow ID")["label"].to_dict()
+            # Map the labels from flow_id_label_dict to packet_data based on the "Flow ID" column
+            packet_data["label"] = packet_data["Flow ID"].map(flow_id_label_dict)
+        
+        return packet_data
 
     def convert_pcap_to_txt(self, f):
         '''
         The function generates .txt file from pcap traces by 
         extracting packet level features
         '''
-
-        # List all .pcap files in the current directory
-        # pcap_files = [f for f in os.listdir(f"{self.data_path}/") if ((f.endswith('.pcap') | (f.endswith('.pcapng'))))]
-
-        # for f in pcap_files:
-        output_file = os.path.join(f"{self.data_path}/txt_files/{f}.txt")
+        output_file = os.path.join(f"{self.data_path}/txt_files/{f.split('.')[0]}.txt")
         
         command = [
             "tshark", "-r", self.data_path+'/'+f, "-Y", "ip.proto == 6 or ip.proto == 17", "-T", "fields",
@@ -363,50 +357,53 @@ class DataGenerator:
         
         with open(output_file, "w") as out_file:
             subprocess.run(command, stdout=out_file, check=True)
-            
-        return f"{f}.txt"
-                
-    def get_flow_length(self):
-        '''
-        The function that calculates the flow length per flow and store
-        '''
-
-        # Count occurrences of each category and add as a new column
-        packet_data = self.packet_data.copy()
-        packet_data['count'] = packet_data.groupby('Flow ID')['Flow ID'].transform('count')
-        packet_data = packet_data[['Flow ID', 'label', 'count']]
-        packet_data = packet_data.drop_duplicates(subset=['Flow ID'])
-        packet_data.to_csv(f"{self.data_path}/{self.use_case}_flow_length.csv")    
                 
     def convert_txt_to_packet_data(self, f):
         '''
         The function generates packet-level data and label all the packets
         '''
-        self.read_data(f"{self.data_path}/txt_files/{f}")   
+        f = f.split('.')[0]
+        packet_data = self.read_data(f"{self.data_path}/txt_files/{f}.txt")   
         label_data_df = pd.read_csv(self.label_data_path)
-        self.label_data(label_data_df)
-        self.packet_data.to_csv(f"{self.data_path}/csv_files/{f}.csv")
-        self.get_flow_length()
+        packet_data = self.get_label_data(packet_data, label_data_df)
+        packet_data.to_csv(f"{self.data_path}/csv_files/{f}.csv", index=False)
         
-        return f"{f}.csv"
+        return packet_data
                 
-    def generate_data(self, f):
+    def generate_data(self, packet_data, f):
+        f = f.split('.')[0]
         for n in self.npkt_lists:
-            self.get_hybrid_data(n, f, self.packet_data, f"{self.data_path}/hybrid_data")
+            self.get_hybrid_data(n, f"{f}.csv", packet_data, f"{self.data_path}/hybrid_data")
+            
+    def get_flow_length(self):
+        '''
+        The function that calculates the flow length per flow and store
+        '''
+        # Create a list to store the data frames
+        flow_length_dfs = []
+        filenames = glob.glob(f"{self.data_path}/csv_files/*.csv")
+        for filename in filenames:
+            df = pd.read_csv(filename) 
+             # Count occurrences of each category and add as a new column
+            df['count'] = df.groupby('Flow ID')['Flow ID'].transform('count')
+            df = df[['Flow ID', 'label', 'count']]
+            df['File'] = filename.split('/')[-1].split('.')[0]
+            df = df.drop_duplicates(subset=['Flow ID'])
+            flow_length_dfs.append(df)
+
+        flow_length_dfs = pd.concat(flow_length_dfs)
+       
+        flow_length_dfs.to_csv(f"{self.data_path}/{self.use_case}_flow_length.csv", index=False)  
             
     def merge_data(self):
         # Iterate over the values of N
         for n in self.npkt_lists:
-            # Create a list to store the data frames
             dfs = []
-            # Find all hybrid data files to merge
             filenames = glob.glob(f"{self.data_path}/hybrid_data/*_{n}.csv")
-            # Iterate over the files
             for filename in filenames:
-                df = pd.read_csv(filename)  # Load the file
+                df = pd.read_csv(filename)
                 dfs.append(df)
-
-            # Concatenate the data frames
+                
             merged_df = pd.concat(dfs)
 
             # Save the merged data frame to a CSV file

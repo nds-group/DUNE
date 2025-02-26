@@ -24,11 +24,9 @@ def run_data_generation(input_data):
 def __run_data_generation(filename, data_generator):
     logger.info(f"Starting the data generation for File: {filename}")
 
-    txt_filename = data_generator.convert_pcap_to_txt(filename)
-    csv_filename = data_generator.convert_txt_to_packet_data(txt_filename)
-    data_generator.generate_data(csv_filename)
-    
-    # logger.info(f"Finished deta genaration, Data at: {data_generator.data_path}")
+    data_generator.convert_pcap_to_txt(filename)
+    data = data_generator.convert_txt_to_packet_data(filename)
+    data_generator.generate_data(data, filename)
 
 
 def main():
@@ -54,9 +52,12 @@ def main():
         # wait for all issued task to complete
         pool.join()
 
+    data_generator.get_flow_length()
     data_generator.merge_data()
     
     del pool
+    
+    logger.info(f"Finished deta genaration, Data at: {data_generator.data_path}")
 
 if __name__ == '__main__':
     basepath = path.dirname(__file__)
