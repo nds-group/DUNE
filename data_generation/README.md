@@ -24,6 +24,8 @@ case.
 6) We finally merge multiple train/test data generated from different pcap traces for the same inference point.
 7) We generate a file including the flow length per flow.
 
+**IMPORTANT NOTE:** The flows with the same flow id is considered as different flows if they are generated from different pcap traces. Please make sure to merge all the input pcap traces if you want these flows to be considered as the same flow.
+
 ### Running the analysis
 After configuring the `params.ini` file you can trigger the analysis by:
 ```bash
