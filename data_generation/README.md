@@ -16,15 +16,17 @@ case.
 - `inference_point_list`: the list of inference points to be used in model analysis
 
 ### What do we generate?
-1) We take the pcap traces as an input to dataGenerator.
-2) From the pcap trace, we generate txt file including raw data of packets with packet-level features.
-3) From the txt file, we generate labeled packet data (as .csv) - with the defined flow id per packet.
-4) From the labeled packet data, we generate train/test data for each inference point for hybrid packet- and flow-level classification. 
-5) If we have multiple pcap traces as an input, we run the steps 1-4 for each pcap trace in parallel.
-6) We finally merge multiple train/test data generated from different pcap traces for the same inference point.
-7) We generate a file including the flow length per flow.
+**Requirements:** The dataset needs to include train and test splits, and each split must have its corresponding PCAP traces.
 
-**IMPORTANT NOTE:** The flows with the same flow id is considered as different flows if they are generated from different pcap traces. Please make sure to merge all pcap traces and generate one trace as an input to `generate_data.py` if you want these flows to be considered as the same flow.
+1) **Input:** We take the pcap traces for the given split as an input to dataGenerator.
+2) **Raw Packet Data Extraction:** From the pcap trace, we generate TXT file containing raw packet data along with packet-level features.
+3) **Labeled Packet Data Creation:** From the TXT file, we generate a CSV file containing labeled packet data. Each packet is assigned a flow ID.
+4) **Experiment Data Generation:** Using the labeled packet data, we generate the experiment dataset for hybrid packet- and flow-level classification, considering each inference point separately.
+5) **Parallel Processing:** If multiple PCAP traces are provided, steps 1-4 are executed in parallel for each trace.
+6) **Merging Data from Multiple Traces:** We finally merge multiple experiment data generated from different pcap traces for the same inference point.
+7) **Flow Length Calculation:** We generate a separate file containing the flow length (i.e., number of packets) for each flow.
+
+**IMPORTANT NOTE:** Flows with the same flow ID are considered unique if they originate from different PCAP traces.
 
 ### Running the analysis
 After configuring the `params.ini` file you can trigger the analysis by:
