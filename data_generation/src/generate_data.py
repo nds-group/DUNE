@@ -36,26 +36,28 @@ def main():
     os.makedirs(f"{data_generator.data_path}/csv_files", exist_ok=True)
     os.makedirs(f"{data_generator.data_path}/hybrid_data", exist_ok=True)
     pcap_files = [f for f in os.listdir(f"{data_generator.data_path}") if ((f.endswith('.pcap') | (f.endswith('.pcapng'))))]
-    consumed_cores = min([max_usable_cores, len(pcap_files)])
-    logger.info(f'Will use {consumed_cores} cores. Starting pool...')
-    with mp.get_context('fork').Pool(processes=consumed_cores) as pool:
-        input_data = list(product(pcap_files, [data_generator]))
-        input_data.append(data_generator)
-        try:
-            # issue tasks to the process pool
-            pool.imap_unordered(run_data_generation, input_data, chunksize=chunksize)
-            # shutdown the process pool
-            pool.close()
-        except KeyboardInterrupt:
-            logger.error("Caught KeyboardInterrupt, terminating workers")
-            pool.terminate()
-        # wait for all issued task to complete
-        pool.join()
+
+    __run_data_generation(pcap_files[0], data_generator)
+    # consumed_cores = min([max_usable_cores, len(pcap_files)])
+    # logger.info(f'Will use {consumed_cores} cores. Starting pool...')
+    # with mp.get_context('fork').Pool(processes=consumed_cores) as pool:
+    #     input_data = list(product(pcap_files, [data_generator]))
+    #     input_data.append(data_generator)
+    #     try:
+    #         # issue tasks to the process pool
+    #         pool.imap_unordered(run_data_generation, input_data, chunksize=chunksize)
+    #         # shutdown the process pool
+    #         pool.close()
+    #     except KeyboardInterrupt:
+    #         logger.error("Caught KeyboardInterrupt, terminating workers")
+    #         pool.terminate()
+    #     # wait for all issued task to complete
+    #     pool.join()
 
     data_generator.get_flow_length()
     data_generator.merge_data()
     
-    del pool
+    # del pool
     
     logger.info(f"Finished deta genaration, Data at: {data_generator.data_path}")
 

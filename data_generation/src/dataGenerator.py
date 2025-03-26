@@ -1,4 +1,6 @@
-import pandas as pd
+# ToDo: remove unused imports
+from collections import defaultdict
+
 import numpy as np
 import sys
 import ast
@@ -9,9 +11,27 @@ import pandas as pd
 import subprocess
 import warnings
 import glob
-from pathlib import Path
 
+flow_pkt_feature_map = {'Min Packet Length': 'ip.len', 'Max Packet Length': 'ip.len',
+                           'Packet Length Mean': 'ip.len', 'Packet Length Total': 'ip.len',
+                           'UDP Len Min': 'udp.length', 'UDP Len Max': 'udp.length',
+                           'Flow IAT Min': 'flow_iat', 'Flow IAT Max': 'flow_iat',
+                           'Flow IAT Mean': 'flow_iat', 'Time to Inference': 'frame.time_relative',
+                           'SYN Flag Count': 'tcp.flags.syn', 'ACK Flag Count': 'tcp.flags.ack',
+                           'PSH Flag Count': 'tcp.flags.push', 'FIN Flag Count': 'tcp.flags.fin',
+                           'RST Flag Count': 'tcp.flags.reset', 'ECE Flag Count': 'tcp.flags.ecn'}
+flow_feature_names = list(flow_pkt_feature_map.keys())
+flow_time_feature_names = ['Flow IAT Min', 'Flow IAT Max', 'Flow IAT Mean', 'Time to Inference']
+flow_op_feature_map = {'Min Packet Length': 'min', 'Max Packet Length': 'max',
+                           'Packet Length Mean': 'mean', 'Packet Length Total': 'sum',
+                           'UDP Len Min': 'min', 'UDP Len Max': 'max',
+                           'Flow IAT Min': 'min', 'Flow IAT Max': 'min',
+                           'Flow IAT Mean': 'mean', 'Time to Inference': 'ptp',
+                           'SYN Flag Count': 'sum', 'ACK Flag Count': 'sum',
+                           'PSH Flag Count': 'sum', 'FIN Flag Count': 'sum',
+                           'RST Flag Count': 'sum', 'ECE Flag Count': 'sum'}
 class DataGenerator:
+
     def __init__(self, use_case, data_type, npkt_lists, data_path, label_data_path, logger):
         self.logger = logger
         self.use_case = use_case
@@ -47,7 +67,7 @@ class DataGenerator:
         udp_lengths = {}
         labels = {}
 
-        packet_count = {}  # contains flowID as key and number of packets as value
+        # packet_count = {}  # contains flowID as key and number of packets as value
         srcMAC = {}  # contains flowID as key and srcnac
         dstMAC = {}  # contains flowID as key and dstmac as value
         syn_flag_count = {}  # contains flowID as key and number of packets with SYN flag 'set' as value
@@ -96,7 +116,7 @@ class DataGenerator:
                 label = row[23]  
                 if key in flow_list:  # check if the packet belongs to already existing flow ?
                     if (len(main_packet_size[key]) < number_of_pkts_limit ):
-                        packet_count[key] = packet_count[key] + 1  # increment packet count
+                        # packet_count[key] = packet_count[key] + 1  # increment packet count
                         main_packet_size[key].append(pktsize)  # append its packet size to the packet size list for this flow
                         lasttime = last_time[key]
                         diff = round(float(time) - float(lasttime), 9)  # calculate inter-arrival time (seconds)
@@ -147,7 +167,7 @@ class DataGenerator:
                     
                 else:  # if this packet is the first one in this NEW flow
                     flow_list.append(key)  # make its entry in the existing flow List
-                    packet_count[key] = 1  # first packet arrived for this flow, set count =1
+                    # packet_count[key] = 1  # first packet arrived for this flow, set count =1
                     main_packet_size[key] = [pktsize]  # make its entry in the packet size dictionary
                     ##
                     tcp_window_sizes[key] = [tcp_window_size_value]
@@ -256,53 +276,71 @@ class DataGenerator:
                     text_file.write("\n")
 
     def read_data(self, filename_in):
+        # ToDo: this function does two things, read and generate PL features. Split into two functions.
         '''
         The function reads a .txt file and generates all the packet level features.
         '''
+
+        # ToDo: this is unnecessary, remove
         packet_data = pd.DataFrame()
 
-        packet_data = pd.read_csv(filename_in, sep = '|', header=None)
+        # ToDo: pass list of desired columns with the usecols argument and types with dtypes. Use a defaultdict to Int64 and specify the ip fields as str only.
+        dtypes=defaultdict(lambda: 'Int64')
+        dtypes["ip.src"] = "str"
+        dtypes["ip.dst"] = "str"
+        dtypes["eth.src"] = "str"
+        dtypes["eth.dst"] = "str"
+        dtypes["frame.time_relative"] = "float"
 
-        packet_data.columns = ["frame.time_relative","ip.src","ip.dst","tcp.srcport","tcp.dstport","ip.len",
+        # ToDo: this hardcodes the pcap columns. Make this configurable
+        packet_data_cols = ["frame.time_relative","ip.src","ip.dst","tcp.srcport","tcp.dstport","ip.len",
                         "tcp.flags.syn","tcp.flags.ack","tcp.flags.push","tcp.flags.fin",
-                        "tcp.flags.reset","tcp.flags.ece","ip.proto","udp.srcport","udp.dstport",
+                        "tcp.flags.reset","tcp.flags.ecn","ip.proto","udp.srcport","udp.dstport",
                         "eth.src","eth.dst", "ip.hdr_len", "ip.tos", "ip.ttl", "tcp.window_size_value", 
                         "tcp.hdr_len", "udp.length"]
+        packet_data = pd.read_csv(filename_in, usecols=packet_data_cols, dtype=dtypes).fillna(0)
 
-        packet_data = packet_data[(packet_data["ip.proto"] != "1,17") & (packet_data["ip.proto"] != "1,6")].reset_index(drop=True)
-        packet_data = packet_data.dropna(subset=['ip.proto'])
-        packet_data["ip.src"] = packet_data["ip.src"].astype(str)
-        packet_data["ip.dst"] = packet_data["ip.dst"].astype(str)
-        packet_data["ip.len"] = packet_data["ip.len"].astype("int")
-        ##the new features from either tcp or udp might have some NA which we set to 0
-        packet_data["tcp.window_size_value"] = packet_data["tcp.window_size_value"].astype('Int64').fillna(0)
-        packet_data["tcp.hdr_len"] = packet_data["tcp.hdr_len"].astype('Int64').fillna(0)
-        packet_data["tcp.hdr_len"] = packet_data["tcp.hdr_len"]/4 # divide by 4 to get values comparable to those in the switch
-        packet_data["udp.length"] = packet_data["udp.length"].astype('Int64').fillna(0)
-        packet_data["tcp.flags.syn"] = packet_data["tcp.flags.syn"].astype('Int64').fillna(0)
-        packet_data["tcp.flags.ack"] = packet_data["tcp.flags.ack"].astype('Int64').fillna(0)
-        packet_data["tcp.flags.push"] = packet_data["tcp.flags.push"].astype('Int64').fillna(0)
-        packet_data["tcp.flags.fin"] = packet_data["tcp.flags.fin"].astype('Int64').fillna(0)
-        packet_data["tcp.flags.reset"] = packet_data["tcp.flags.reset"].astype('Int64').fillna(0)
-        packet_data["tcp.flags.ece"] = packet_data["tcp.flags.ece"].astype('Int64').fillna(0)
+        # ToDo: why "1,17" or "1,6" instead of 17 or 6? Is it because of quoted packets? If yes, probably it is better to filter out ICMP traffic from the beginning
+        # packet_data = packet_data[(packet_data["ip.proto"] != "1,17") & (packet_data["ip.proto"] != "1,6")].reset_index(drop=True)
+        # packet_data = packet_data.dropna(subset=['ip.proto'])
+        # packet_data["ip.src"] = packet_data["ip.src"].astype(str)
+        # packet_data["ip.dst"] = packet_data["ip.dst"].astype(str)
+        # # ToDO: why is this field int and not Int64 like the others?
+        # packet_data["ip.len"] = packet_data["ip.len"].astype("int")
+        # ##the new features from either tcp or udp might have some NA which we set to 0
+        # packet_data["tcp.window_size_value"] = packet_data["tcp.window_size_value"].astype('Int64').fillna(0)
+        # packet_data["tcp.hdr_len"] = packet_data["tcp.hdr_len"].astype('Int64').fillna(0)
+        # ToDo: clarify why this is needed
+        packet_data["tcp.hdr_len"] = packet_data["tcp.hdr_len"]/4 # divide by 4, since the tcp_offset counts 32-bit words
+        # packet_data["udp.length"] = packet_data["udp.length"].astype('Int64').fillna(0)
+        # packet_data["tcp.flags.syn"] = packet_data["tcp.flags.syn"].astype('Int64').fillna(0)
+        # packet_data["tcp.flags.ack"] = packet_data["tcp.flags.ack"].astype('Int64').fillna(0)
+        # packet_data["tcp.flags.push"] = packet_data["tcp.flags.push"].astype('Int64').fillna(0)
+        # packet_data["tcp.flags.fin"] = packet_data["tcp.flags.fin"].astype('Int64').fillna(0)
+        # packet_data["tcp.flags.reset"] = packet_data["tcp.flags.reset"].astype('Int64').fillna(0)
+        # packet_data["tcp.flags.ece"] = packet_data["tcp.flags.ece"].astype('Int64').fillna(0)
         ##
-        packet_data["tcp.srcport"] = packet_data["tcp.srcport"]
-        packet_data["tcp.dstport"] = packet_data["tcp.dstport"]
-        packet_data["udp.srcport"] = packet_data["udp.srcport"].astype('Int64')
-        packet_data["udp.dstport"] = packet_data["udp.dstport"].astype('Int64')
+
+        # # ToDo: remove below two identity lines
+        # packet_data["tcp.srcport"] = packet_data["tcp.srcport"]
+        # packet_data["tcp.dstport"] = packet_data["tcp.dstport"]
+        # packet_data["udp.srcport"] = packet_data["udp.srcport"].astype('Int64')
+        # packet_data["udp.dstport"] = packet_data["udp.dstport"].astype('Int64')
         #
+        # ToDo: ip.proto must be either a string or an int, so one of the OR conditions is extra, please remove
         packet_data["srcport"] = np.where(((packet_data["ip.proto"] == "6") | (packet_data["ip.proto"] == 6)), packet_data["tcp.srcport"], packet_data["udp.srcport"])
         packet_data["dstport"] = np.where(((packet_data["ip.proto"] == "6") | (packet_data["ip.proto"] == 6)), packet_data["tcp.dstport"], packet_data["udp.dstport"])
         #
         # packet_data = packet_data.dropna(subset=['srcport'])
         # packet_data = packet_data.dropna(subset=['dstport'])
-        packet_data["srcport"] = packet_data["srcport"].astype('Int64')
-        packet_data["dstport"] = packet_data["dstport"].astype('Int64')
+        # packet_data["srcport"] = packet_data["srcport"].astype('Int64')
+        # packet_data["dstport"] = packet_data["dstport"].astype('Int64')
         
         #===============================CREATE THE FLOW IDs AND DROP UNWANTED COLUMNS =============================================#
         packet_data = packet_data.drop(["tcp.srcport","tcp.dstport","udp.srcport","udp.dstport"],axis=1)
         packet_data = packet_data.reset_index(drop=True)
 
+        # ToDo: if the type has already been set, then only srcport and dstport need to be casted
         packet_data["Flow ID"] = packet_data["ip.src"].astype(str) + " " + packet_data["ip.dst"].astype(str) + " " + packet_data["srcport"].astype(str) + " " + packet_data["dstport"].astype(str) + " " + packet_data["ip.proto"].astype(str)
         
         return packet_data
@@ -344,7 +382,7 @@ class DataGenerator:
         output_file = os.path.join(f"{self.data_path}/txt_files/{f.split('.')[0]}.txt")
         
         command = [
-            "tshark", "-r", self.data_path+'/'+f, "-Y", "ip.proto == 6 or ip.proto == 17", "-T", "fields",
+            "tshark", "-r", self.data_path+'/'+f, "-Y", "not icmp and (tcp or udp)", "-T", "fields",
             "-e", "frame.time_relative", "-e", "ip.src", "-e", "ip.dst",
             "-e", "tcp.srcport", "-e", "tcp.dstport", "-e", "ip.len",
             "-e", "tcp.flags.syn", "-e", "tcp.flags.ack", "-e", "tcp.flags.push",
@@ -352,13 +390,14 @@ class DataGenerator:
             "-e", "ip.proto", "-e", "udp.srcport", "-e", "udp.dstport",
             "-e", "eth.src", "-e", "eth.dst", "-e", "ip.hdr_len", "-e", "ip.tos",
             "-e", "ip.ttl", "-e", "tcp.window_size_value", "-e", "tcp.hdr_len", "-e", "udp.length",
-            "-E", "separator=|"
+            "-E", "separator=,", "-E", "quote=n", "-E", "header=y"
         ]
-        
+
         with open(output_file, "w") as out_file:
             subprocess.run(command, stdout=out_file, check=True)
                 
     def convert_txt_to_packet_data(self, f):
+        # ToDo: this function does two things that are hidden by the also non-descriptive function name
         '''
         The function generates packet-level data and label all the packets
         '''
@@ -373,7 +412,8 @@ class DataGenerator:
     def generate_data(self, packet_data, f):
         f = f.split('.')[0]
         for n in self.npkt_lists:
-            self.get_hybrid_data(n, f"{f}.csv", packet_data, f"{self.data_path}/hybrid_data")
+            self.generate_hybrid_data(n, f"{f}.csv", packet_data)
+            # self.get_hybrid_data(n, f"{f}.csv", packet_data, f"{self.data_path}/hybrid_data")
             
     def get_flow_length(self):
         '''
@@ -409,3 +449,50 @@ class DataGenerator:
             # Save the merged data frame to a CSV file
             output_filename = f"{self.data_path}/hybrid_data/{self.use_case}_{self.data_type}_{n}.csv"
             merged_df.to_csv(output_filename, index=False)
+
+    def generate_hybrid_data(self, n, filename_in, packet_data):
+        # Sort by group key and time
+        packet_data = packet_data.sort_values(by=['Flow ID', 'frame.time_relative'])
+
+        # Compute the packet number
+        packet_data['pkt_number'] = (
+                packet_data
+                .groupby('Flow ID')  # Group by the 'key' column
+                .cumcount() + 1  # Create a cumulative count starting at 1
+        )
+
+        # Compute flow_iat
+        packet_data['flow_iat'] = packet_data.groupby('Flow ID')['frame.time_relative'].diff().fillna(0)
+
+        packet_data.loc[packet_data['pkt_number'] < n, flow_feature_names] = -1
+
+        # count_feature_names = (feature for feature in flow_feature_names if 'Count' in feature)
+        for feature in flow_feature_names:
+            op = flow_op_feature_map[feature]
+            # handle the ptp case
+            if op == 'ptp':
+                op = np.ptp
+
+            # Step 1: Compute the group-wise sum of 'tcp.flags.syn' for rows where 'pkt_number' < n
+            group_aggregations = (
+                packet_data[packet_data['pkt_number'] <= n]
+                .groupby('Flow ID')[flow_pkt_feature_map[feature]]
+                .agg(op)
+            )
+
+            # Step 2: Map the group sums back to rows where 'pkt_number' >= n
+            packet_data.loc[
+                packet_data['pkt_number'] >= n,
+                feature
+            ] = packet_data.loc[
+                packet_data['pkt_number'] >= n, 'Flow ID'
+            ].map(group_aggregations)
+
+            # Step 3: convert time features to ns
+            if feature in flow_time_feature_names:
+                packet_data.loc[packet_data['pkt_number'] >= n, feature] = (
+                        packet_data.loc[packet_data['pkt_number'] >= n, feature] * 10e9).round(9)
+
+        packet_data.assign(file=filename_in)
+
+        return packet_data
