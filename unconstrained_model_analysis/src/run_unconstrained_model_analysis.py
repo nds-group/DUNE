@@ -2,15 +2,13 @@ import ast
 import configparser
 import os
 from os import path
+import pandas as pd
 
-# from model_performance.performanceAnalyzer import calculate_TOTAL_TCAM_usage
-from model_analysis.modelAnalyzer import UNSWModelAnalyzer, TONModelAnalyzer, select_best_unconstained_model
-from run_pcfi import get_feats_importance
-from tabulate import tabulate
+from cluster_analysis.src.model_analysis.modelAnalyzer import UNSWModelAnalyzer, TONModelAnalyzer
+from cluster_analysis.src.model_performance.performanceAnalyzer import select_best_unconstained_model
+from pcfi.pcfi import get_feats_importance
 import multiprocessing as mp
 from ast import literal_eval
-from itertools import product
-import pandas as pd
 import logging
 
 width = os.get_terminal_size().columns
@@ -22,59 +20,56 @@ def literal_converter(val):
     return val if val == '' else literal_eval(val)
 
 
-def run_analysis(input_data):
-    n_point = input_data
-    try:
-        return __run_analysis(n_point)
-    except Exception as e:
-        logger.error(f"An error occurred: {e}")
-        return []
-
-def __run_analysis(n_point):
+def run_analysis(n_point):
     logger.info(f"Starting analysis of: npoint {n_point}")
     f_name = f"{results_dir_path}/{use_case}_models_{n_point}pkts.csv"
+
+    max_depth_list = list(range(5, 31))
+    n_trees_list = list(range(1, 41))
+
     model_analyzer = None
     if use_case == 'UNSW':
         model_analyzer = UNSWModelAnalyzer(train_data_dir_path, test_data_dir_path, flow_counts_train_file_path,
-                                           flow_counts_test_file_path, classes_filter, features_filter, logger)
+                                           flow_counts_test_file_path, classes_filter, features_filter, logger=logger,
+                                           n_trees_list=n_trees_list, max_depth_list=max_depth_list)
     elif use_case == 'TON-IOT':
         model_analyzer = TONModelAnalyzer(train_data_dir_path, test_data_dir_path, flow_counts_train_file_path,
-                                          flow_counts_test_file_path, classes_filter, features_filter, logger)
+                                          flow_counts_test_file_path, classes_filter, features_filter, logger=logger,
+                                          n_trees_list=n_trees_list, max_depth_list=max_depth_list)
+
+    model_analyzer.classes = classes_filter
+    model_analyzer.classes_df = pd.DataFrame(classes_filter, columns=['class'])
     # model_analyzer.load_cluster_data(classes_filter)
-    model_analyzer.analyze_model_n_packets(n_point, f_name, force_rewrite)
+    model_analyzer.analyze_model_n_packets(n_point, f_name, force_rewrite, grid_search=True)
     logger.info(f"Finished analyzing n={n_point}, Results at: {results_dir_path}")
 
 
-def run_model_generation(input_data):
-    model_info_dict = input_data
-    try:
-        return __run_model_generation(model_info_dict)
-    except Exception as e:
-        logger.error(f"An error occurred: {e}")
-        return []
 
-def __run_model_generation(model_info_dict):
+def run_model_generation(model_info_dict):
     logger.info(f"Starting the best model generation and getting the importance weights by PCFI")
-    
+
     best_model_analyzer = None
     if use_case == 'UNSW':
         best_model_analyzer = UNSWModelAnalyzer(train_data_dir_path, test_data_dir_path, flow_counts_train_file_path,
-                                           flow_counts_test_file_path, classes_filter, features_filter, logger)
+                                           flow_counts_test_file_path, classes_filter, features_filter, logger=logger)
     elif use_case == 'TON-IOT':
         best_model_analyzer = TONModelAnalyzer(train_data_dir_path, test_data_dir_path, flow_counts_train_file_path,
-                                          flow_counts_test_file_path, classes_filter, features_filter, logger)
+                                          flow_counts_test_file_path, classes_filter, features_filter, logger=logger)
+
+    best_model_analyzer.classes = classes_filter
+    best_model_analyzer.classes_df = pd.DataFrame(classes_filter, columns=['class'])
 
     rf_opt, FL_class_report = best_model_analyzer.generate_model(model_info_dict)
     score_per_class_df = best_model_analyzer.get_score_per_class(FL_class_report)
     feat_importance_df = get_feats_importance(rf_opt, classes_filter, model_info_dict['feats'])
-    
+
     # Create folder for saving results
     if not os.path.exists(f'{results_dir_path}/perf_results'):
         os.makedirs(f'{results_dir_path}/perf_results')
 
-    feat_importance_df.to_csv(f'{results_dir_path}/perf_results//importance_weights.csv')
-    score_per_class_df.to_csv(f'{results_dir_path}/perf_results//score_per_cluster_per_class_df.csv')
-    
+    feat_importance_df.to_csv(f'{results_dir_path}/perf_results/importance_weights.csv')
+    score_per_class_df.to_csv(f'{results_dir_path}/perf_results/score_per_cluster_per_class_df.csv')
+
     logger.info(f"Finished running PCFI, Results at: {results_dir_path}")
 
 
@@ -95,13 +90,12 @@ def main():
         # wait for all issued task to complete
         pool.join()
 
-
-        logger.info("Selecting the best unconstrained model")
-        best_model_info = select_best_unconstained_model(results_dir_path)
-        logger.info(f"The best unconstrained model: {best_model_info}")
-        run_model_generation(best_model_info)
-
     del pool
+
+    logger.info("Selecting the best unconstrained model")
+    best_model_info = select_best_unconstained_model(results_dir_path)
+    logger.info(f"The best unconstrained model: {best_model_info}")
+    run_model_generation(best_model_info)
 
 
 if __name__ == '__main__':
