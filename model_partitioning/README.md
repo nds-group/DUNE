@@ -29,7 +29,3 @@ source ./bin/activate
 python3 model_partitioning.py
 ```
 You will see logs with the progress of the execution.
-
-In addition, you can uncomment other analysis inside this file, like brute force analysis or time execution.
-**Alternatively, you can use the notebook provided in the notebooks folder to easily visualize results and execute
-particular functions.**
