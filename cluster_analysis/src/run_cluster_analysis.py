@@ -36,14 +36,20 @@ def __run_analysis(n_point, cluster_id):
     logger.info(f"Starting analysis of: Cluster id: {cluster_id}, npoint {n_point}")
     f_name = f"{results_dir_path}/{use_case}_models_{n_point}pkts_Cluster{cluster_id}.csv"
     model_analyzer = None
+    # an even number of trees is problematic for implementing the voting table. Try to avoid them.
+    n_trees_list = [1, 3, 5]
+    # Max values per TCAM table, i.e., 85 would require 2 TCAM tables
+    max_leaves_list = [41, 85, 129, 173, 217, 261, 305, 349, 393, 437, 481, 500]
     if use_case == 'UNSW':
         model_analyzer = UNSWModelAnalyzer(train_data_dir_path, test_data_dir_path, flow_counts_train_file_path,
                                            flow_counts_test_file_path, classes_filter, features_filter,
-                                           cluster_data_file_path, logger)
+                                           cluster_data_file_path, logger,
+                                           n_trees_list=n_trees_list, max_leaves_list=max_leaves_list)
     elif use_case == 'TON-IOT':
         model_analyzer = TONModelAnalyzer(train_data_dir_path, test_data_dir_path, flow_counts_train_file_path,
                                           flow_counts_test_file_path, classes_filter, features_filter,
-                                          cluster_data_file_path, logger)
+                                          cluster_data_file_path, logger,
+                                          n_trees_list=n_trees_list, max_leaves_list=max_leaves_list)
     model_analyzer.load_cluster_data(cluster_info.loc[cluster_id])
     model_analyzer.analyze_model_n_packets(n_point, f_name, force_rewrite, grid_search)
     logger.info(f"Finished analyzing n={n_point}, Cluster={cluster_id}. Results at: {results_dir_path}")
@@ -55,8 +61,8 @@ def main():
     consumed_cores = min([max_usable_cores, len(inference_points_list) * len(cluster_id_list)])
     logger.info(f'Will use {consumed_cores} cores. Starting pool...')
 
+    input_data = list(product(inference_points_list, cluster_id_list))
     with mp.get_context('fork').Pool(processes=consumed_cores) as pool:
-        input_data = list(product(inference_points_list, cluster_id_list))
         try:
             # issue tasks to the process pool
             pool.imap_unordered(run_analysis, input_data, chunksize=chunksize)
@@ -67,45 +73,45 @@ def main():
             pool.terminate()
         # wait for all issued task to complete
         pool.join()
+        del pool
+    # __run_analysis(input_data[0][0], input_data[0][1])
 
-        #ToDo: check on the need for the try/catch block.
-        #ToDo: only high-level functions should be called here
-        cluster_info = pd.read_csv(cluster_data_file_path, converters=dict.fromkeys(['Class List', 'Feature List'], literal_converter))
-        cluster_info = cluster_info.drop(['Unnamed: 0'], axis=1)
-        cluster_info = cluster_info.set_index('Cluster', drop=True)
-        classes = cluster_info['Class List'].sum()
-        classes.sort()
+    #ToDo: only high-level functions should be called here
+    cluster_info = pd.read_csv(cluster_data_file_path, converters=dict.fromkeys(['Class List', 'Feature List'], literal_converter))
+    cluster_info = cluster_info.drop(['Unnamed: 0'], axis=1)
+    cluster_info = cluster_info.set_index('Cluster', drop=True)
+    classes = cluster_info['Class List'].sum()
+    classes.sort()
 
-        flow_pkt_counts = pd.read_csv(flow_counts_test_file_path)
-        if use_case == 'TON-IOT':
-            support = flow_pkt_counts['type'].value_counts().loc[classes].sort_index()
-        else:
-            support = flow_pkt_counts['label'].value_counts().loc[classes].sort_index()
+    flow_pkt_counts = pd.read_csv(flow_counts_test_file_path)
+    if use_case == 'TON-IOT':
+        support = flow_pkt_counts['type'].value_counts().loc[classes].sort_index()
+    else:
+        support = flow_pkt_counts['label'].value_counts().loc[classes].sort_index()
 
-        logger.info("Selecting the best models for each cluster...")
-        best_models_df = select_best_models_per_cluster(cluster_info, results_dir_path)
-        cluster_info = append_best_models_info_to_cluster_info(cluster_info, best_models_df)
-        score_per_class_df = generate_score_per_class_report_for_best_models(classes, best_models_df, support)
+    logger.info("Selecting the best models for each cluster...")
+    best_models_df = select_best_models_per_cluster(cluster_info, results_dir_path)
+    cluster_info = append_best_models_info_to_cluster_info(cluster_info, best_models_df)
+    score_per_class_df = generate_score_per_class_report_for_best_models(classes, best_models_df, support)
 
-        # Create folder for saving results
-        if not os.path.exists(f'{results_dir_path}/perf_results'):
-            os.makedirs(f'{results_dir_path}/perf_results')
+    # Create folder for saving results
+    if not os.path.exists(f'{results_dir_path}/perf_results'):
+        os.makedirs(f'{results_dir_path}/perf_results')
 
-        cluster_info.to_csv(f'{results_dir_path}/perf_results/cluster_info_df.csv')
-        score_per_class_df.to_csv(f'{results_dir_path}/perf_results//score_per_cluster_per_class_df.csv')
+    cluster_info.to_csv(f'{results_dir_path}/perf_results/cluster_info_df.csv')
+    score_per_class_df.to_csv(f'{results_dir_path}/perf_results//score_per_cluster_per_class_df.csv')
 
-        print('=' * width)
-        score = calculate_f1_score(score_per_class_df)
-        print(f"Average F1 score:\n \tMacro: {score[0]}\n  \tWeighted: {score[1]}")
-        tcam = calculate_TOTAL_TCAM_usage(cluster_info)
-        print(f"TOTAL TCAM usage: {tcam}")
-        # print the cluster info with the best model
-        print(f"Final Models information:")
-        print(tabulate(cluster_info, headers='keys', tablefmt='psql'))
-        print("END")
-        # except ValueError as e:
-        #     logger.error(f"F1 score could not be calculated. The following error was raised: {e}")
-    del pool
+    print('=' * width)
+    score = calculate_f1_score(score_per_class_df)
+    print(f"Average F1 score:\n \tMacro: {score[0]}\n  \tWeighted: {score[1]}")
+    tcam = calculate_TOTAL_TCAM_usage(cluster_info)
+    print(f"TOTAL TCAM usage: {tcam}")
+    # print the cluster info with the best model
+    print(f"Final Models information:")
+    print(tabulate(cluster_info, headers='keys', tablefmt='psql'))
+    print("END")
+    # except ValueError as e:
+    #     logger.error(f"F1 score could not be calculated. The following error was raised: {e}")
 
 
 if __name__ == '__main__':

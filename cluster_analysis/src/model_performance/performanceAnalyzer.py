@@ -99,14 +99,19 @@ def select_best_models_per_cluster(cluster_info, analysis_files_dir) -> pd.DataF
         if 'csv' not in extension:
             continue
 
-        grep_data = pattern.findall(file_string)
-        n_point = int(grep_data[0])
-        cl = int(grep_data[1])
+        try:
+            grep_data = pattern.findall(file_string)
+            n_point = int(grep_data[0])
+            cl = int(grep_data[1])
+        except Exception as e:
+            print(f"Could not parse the file: {file_string} with error: {e} \n Skipping this file. \n")
+            continue
 
         model_analysis_for_nth = pd.read_csv(f'{analysis_files_dir}/{file_string}', sep=';',
-                                             converters=dict.fromkeys(['feats'], literal_converter))
+                                             converters=dict.fromkeys(['feats', 'N_Leaves'], literal_converter))
         model_analysis_for_nth['N'] = n_point
         model_analysis_for_nth['Avg_F1_score'] = model_analysis_for_nth['Macro_f1_FL']
+        model_analysis_for_nth['N_Leaves'] = model_analysis_for_nth['N_Leaves'].apply(lambda x: max(x))
         d_frames[cl].append(model_analysis_for_nth)
 
     chosen_models=[]
@@ -207,3 +212,53 @@ def calculate_TOTAL_TCAM_usage(cluster_info):
     """
     total_TCAM = sum(cluster_info['Total_TCAM_Usage'].to_list()[1:])
     return total_TCAM
+
+
+def select_best_unconstained_model(analysis_files_dir):
+    """ Selects the best model based on the macro f1 score
+    :param analysis_files_dir: Path to the analysis folder
+    :return: the information of selected model as dict
+    """
+    model_info = {}
+    directory = os.fsencode(analysis_files_dir)
+    d_frames = []
+    pattern = re.compile('[0-9]+')
+
+    for file in os.listdir(directory):
+        file_string = file.decode("utf-8")
+        path = os.path.join(directory, file)
+        if os.path.isdir(path):
+            # skip directories
+            continue
+        base = os.path.basename(file_string)
+        stem = os.path.splitext(base)[0]
+        extension = os.path.splitext(base)[1]
+        if 'csv' not in extension:
+            continue
+        if 'solution.csv' in file_string:
+            continue  # this is the solution file
+
+        grep_data = pattern.findall(file_string)
+        n_point = int(grep_data[0])
+
+        model_analysis_for_nth = pd.read_csv(f'{analysis_files_dir}/{file_string}', sep=';',
+                                             converters=dict.fromkeys(['depth', 'feats'], literal_converter))
+        model_analysis_for_nth['N'] = n_point
+
+        d_frames.append(model_analysis_for_nth)
+
+    analysis_results_df = pd.concat(d_frames)
+
+    #### ORDER in terms of MACRO F1 SCORE and choose the BEST
+    chosen_model = analysis_results_df.sort_values('Macro_f1_FL', ascending=0).head(1)
+
+    # ToDo: the chosen model can have more than one tree...
+    model_info['depth'] = chosen_model['depth'].explode().max()
+    model_info['tree'] = chosen_model['tree'].values[0]
+    model_info['feats'] = chosen_model['feats'].values[0]
+    model_info['npkts'] = chosen_model['N'].values[0]
+    model_info['macro_f1_FL'] = chosen_model['Macro_f1_FL'].values[0]
+    model_info['weighted_f1_FL'] = chosen_model['Weighted_f1_FL'].values[0]
+    model_info['micro_f1_FL'] = chosen_model['Micro_f1_FL'].values[0]
+
+    return model_info
