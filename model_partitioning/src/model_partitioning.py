@@ -9,7 +9,7 @@ from SPP.spp import SPP
 
 if __name__ == '__main__':
     config = configparser.ConfigParser()
-    config.read('spp_params.ini')
+    config.read('spp_params.ini.example')
     use_case = config['DEFAULT']['use_case']
     n_classes = int(config[use_case]['n_classes'])
     n_features = int(config[use_case]['n_features'])

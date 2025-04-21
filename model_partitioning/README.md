@@ -23,7 +23,7 @@ following alphabetical order.
 through this parameter. Comment out fix_level if not desired. Note that the level = n_clusters + 1
 
 ### Running the analysis
-After configuring the `spp_params.ini` file you can trigger the analysis by:
+After configuring the `spp_params.ini.example` file you can trigger the analysis by:
 ```bash
 source ./bin/activate
 python3 model_partitioning.py
