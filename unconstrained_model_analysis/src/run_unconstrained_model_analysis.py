@@ -67,8 +67,8 @@ def run_model_generation(model_info_dict):
     if not os.path.exists(f'{results_dir_path}/perf_results'):
         os.makedirs(f'{results_dir_path}/perf_results')
 
-    feat_importance_df.to_csv(f'{results_dir_path}/perf_results/importance_weights.csv')
-    score_per_class_df.to_csv(f'{results_dir_path}/perf_results/score_per_cluster_per_class_df.csv')
+    feat_importance_df.to_csv(f'{results_dir_path}/perf_results/importance_weights.csv', index=False)
+    score_per_class_df.to_csv(f'{results_dir_path}/perf_results/score_per_cluster_per_class_df.csv', index=False)
 
     logger.info(f"Finished running PCFI, Results at: {results_dir_path}")
 
