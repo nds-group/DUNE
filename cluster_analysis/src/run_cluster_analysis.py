@@ -78,7 +78,7 @@ def main():
 
     #ToDo: only high-level functions should be called here
     cluster_info = pd.read_csv(cluster_data_file_path, converters=dict.fromkeys(['Class List', 'Feature List'], literal_converter))
-    cluster_info = cluster_info.drop(['Unnamed: 0'], axis=1)
+    # cluster_info = cluster_info.drop(['Unnamed: 0'], axis=1)
     cluster_info = cluster_info.set_index('Cluster', drop=True)
     classes = cluster_info['Class List'].sum()
     classes.sort()
