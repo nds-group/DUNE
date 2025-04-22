@@ -192,9 +192,9 @@ def get_confusion_matrix(use_case, classes_filter, clusters_best_model_info, flo
     cm_matrix_cluster = pd.DataFrame()
 
     for cluster_id in range(0, len(cluster_list)):
-        npkts = int(clusters_best_model_info.loc[cluster_id]['N_With_Others'])
-        n_tree = int(clusters_best_model_info.loc[cluster_id]['Tree_With_Others'])
-        max_n_leaves = int(clusters_best_model_info.loc[cluster_id]['N_Leaves_With_Others'])
+        npkts = int(clusters_best_model_info.loc[cluster_id]['N'])
+        n_tree = int(clusters_best_model_info.loc[cluster_id]['Tree'])
+        max_n_leaves = int(clusters_best_model_info.loc[cluster_id]['N_Leaves'])
         feat_names = clusters_best_model_info.loc[cluster_id]['Feature List']
 
         classes = cluster_list[cluster_id]
@@ -276,7 +276,6 @@ if __name__ == '__main__':
     # Get the cluster information which is obtained in the previous steps
     clusters_best_model_info = pd.read_csv(best_models_path,
                                            converters=dict.fromkeys(['Class List', 'Feature List'], literal_converter))
-    clusters_best_model_info = clusters_best_model_info.drop(['Unnamed: 0'], axis=1)
     clusters_best_model_info = clusters_best_model_info.set_index('Cluster', drop=True)
     
     # Get the confusion matrix between the models of the corresponding clusters
@@ -297,7 +296,7 @@ if __name__ == '__main__':
     logger.info(f'\n{cm_matrix_cluster_normalized_df}')
     
     cost_FP = cm_matrix_cluster_normalized_df.values
-    cost_F1 = clusters_best_model_info['Macro_f1_FL_With_Others'].values
+    cost_F1 = clusters_best_model_info['Macro_f1_FL'].values
 
     # Order the clusters based on the FP, and F1 scores
     blocks_seq = order_blocks_with_tsp(cost_FP, cost_F1)
