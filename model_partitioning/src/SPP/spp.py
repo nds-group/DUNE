@@ -200,11 +200,11 @@ class SPP:
             self.weights_df = weights_df
         self.unwanted_classes = unwanted_classes
         self.classes_subset = classes_subset
-        self.features_list = list(self.weights_df.drop(columns=['c_name']).columns)
+        self.features_list = list(self.weights_df.drop(columns=['classes']).columns)
         if f1_df is None:
             if f1_file is None:
                 raise ValueError('Either f1_df or f1_file must be provided')
-            self.F1_data = pd.read_csv(f1_file).set_index('class').drop(columns=['Unnamed: 0'])
+            self.F1_data = pd.read_csv(f1_file).set_index('class')
         else:
             self.F1_data = f1_df
 
@@ -212,7 +212,7 @@ class SPP:
         self.feature_cost = self._get_feature_cost(n_features)
         self.precomputed_gains = None
 
-        self.weights_df = self.weights_df.set_index('c_name')
+        self.weights_df = self.weights_df.set_index('classes')
         if classes_subset:
             self.classes_list = self.classes_subset
             self.feature_importance = self.weights_df.loc[self.classes_list].values[:, :self.n_features]
@@ -369,7 +369,7 @@ class SPP:
         plt.show()
 
     def encode_cluster_solution(self, cluster_info):
-        weights = self.weights_df.set_index('c_name').sort_values(by='c_name')
+        weights = self.weights_df.set_index('classes').sort_values(by='classes')
         weights = weights.loc[~weights.index.isin(self.unwanted_classes)]
         n_classes = len(list(cluster_info['Class List'].explode()))
         n_features = len(list(cluster_info['Feature List'].explode()))
@@ -393,7 +393,7 @@ class SPP:
             cluster_W = weights.loc[cluster_class_list][cluster_features_list].values
 
             # Class list binary encoding
-            cluster_class_idx = pcfi_data_no_idx.loc[pcfi_data_no_idx["c_name"].isin(cluster_class_list)].index.values
+            cluster_class_idx = pcfi_data_no_idx.loc[pcfi_data_no_idx["classes"].isin(cluster_class_list)].index.values
             cluster_class_encoding = np.sum([onehot(idx + 1, n_classes) for idx in cluster_class_idx], axis=0)
             classes.append(cluster_class_encoding)
 
@@ -478,11 +478,11 @@ class SPP:
                 [encode_int_encoded_partition(partition, n_classes) for partition in partition if len(partition) > 0],
                 axis=0)
 
-        weights = self.weights_df.set_index('c_name').sort_values(by='c_name')
+        weights = self.weights_df.set_index('classes').sort_values(by='classes')
         # remove unwanted classes
         weights = weights.loc[~weights.index.isin(self.unwanted_classes)]
         # select the first n_classes and n_features
-        weights = weights.sort_values(by='c_name').values[:n_classes, :n_features]
+        weights = weights.sort_values(by='classes').values[:n_classes, :n_features]
 
         random_partition = get_random_partition(n_classes)
         # select features optimally for the given random partition
