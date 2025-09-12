@@ -68,9 +68,7 @@ parser IngressParser(packet_in        pkt,
         meta.hdr_srcport = hdr.tcp.src_port;
         meta.tcp_hdr_len = hdr.tcp.data_offset;
         meta.tcp_windows_size = hdr.tcp.window;
-        // meta.tcp_flag_ack = hdr.tcp.ack;
         meta.udp_len = 0;
-        // transition accept;
         transition parse_notify;
     }
 
@@ -78,11 +76,9 @@ parser IngressParser(packet_in        pkt,
         pkt.extract(hdr.udp);
         meta.hdr_dstport = hdr.udp.dst_port;
         meta.hdr_srcport = hdr.udp.src_port;
-        // meta.tcp_flag_ack = 0;
         meta.tcp_hdr_len = 0;
         meta.tcp_windows_size = 0;
         meta.udp_len = hdr.udp.udp_total_len;
-        // transition accept;
         transition parse_notify;
     }
 
@@ -110,54 +106,41 @@ control Ingress(
     /* Registers for flow management */
     // First model
     Register<bit<8>,bit<(INDEX_WIDTH)>>(MAX_REGISTER_ENTRIES) reg_classified_flag_model1;
-    /* Register read action */
     RegisterAction<bit<8>,bit<(INDEX_WIDTH)>,bit<8>>(reg_classified_flag_model1)
-    // update_classified_flag = {
     read_classified_flag_model1 = {
         void apply(inout bit<8> classified_flag, out bit<8> output) {
             output = classified_flag;
         }
     };
     RegisterAction<bit<8>,bit<(INDEX_WIDTH)>,bit<8>>(reg_classified_flag_model1)
-    // update_classified_flag = {
     update_classified_flag_model1 = {
         void apply(inout bit<8> classified_flag) {
-            // if (meta.pkt_count == 3){
             classified_flag = meta.class_model1;
-            // }
-
         }
     };
     // Second model
     Register<bit<8>,bit<(INDEX_WIDTH)>>(MAX_REGISTER_ENTRIES) reg_classified_flag_model2;
-    /* Register read action */
     RegisterAction<bit<8>,bit<(INDEX_WIDTH)>,bit<8>>(reg_classified_flag_model2)
-    // update_classified_flag = {
     read_classified_flag_model2 = {
         void apply(inout bit<8> classified_flag, out bit<8> output) {
             output = classified_flag;
         }
     };
     RegisterAction<bit<8>,bit<(INDEX_WIDTH)>,bit<8>>(reg_classified_flag_model2)
-    // update_classified_flag = {
     update_classified_flag_model2 = {
         void apply(inout bit<8> classified_flag) {
-            // if (meta.pkt_count == 3){
             classified_flag = meta.final_class;
-            // }
-
         }
     };
 
     Register<bit<32>,bit<(INDEX_WIDTH)>>(MAX_REGISTER_ENTRIES) reg_flow_ID;
-    /* Register read action */
     RegisterAction<bit<32>,bit<(INDEX_WIDTH)>,bit<32>>(reg_flow_ID)
     update_flow_ID = {
         void apply(inout bit<32> flow_ID) {
             flow_ID = meta.flow_ID;
         }
     };
-    /* Register read action */
+
     RegisterAction<bit<32>,bit<(INDEX_WIDTH)>,bit<32>>(reg_flow_ID)
     read_only_flow_ID = {
         void apply(inout bit<32> flow_ID, out bit<32> output) {
@@ -166,7 +149,6 @@ control Ingress(
     };
 
     Register<bit<32>,bit<(INDEX_WIDTH)>>(MAX_REGISTER_ENTRIES) reg_time_last_pkt;
-    /* Register read action */
     RegisterAction<bit<32>,bit<(INDEX_WIDTH)>,bit<32>>(reg_time_last_pkt)
     read_time_last_pkt = {
         void apply(inout bit<32> time_last_pkt, out bit<32> output) {
@@ -177,7 +159,6 @@ control Ingress(
 
     //registers for ML inference - features
     Register<bit<8>,bit<(INDEX_WIDTH)>>(MAX_REGISTER_ENTRIES) reg_pkt_count;
-    /* Register read action */
     RegisterAction<bit<8>,bit<(INDEX_WIDTH)>,bit<8>>(reg_pkt_count)
     read_pkt_count = {
         void apply(inout bit<8> pkt_count, out bit<8> output) {
@@ -187,7 +168,6 @@ control Ingress(
     };
 
     Register<bit<16>,bit<(INDEX_WIDTH)>>(MAX_REGISTER_ENTRIES) reg_pkt_len_max;
-    /* Register read action */
     RegisterAction<bit<16>,bit<(INDEX_WIDTH)>,bit<16>>(reg_pkt_len_max)
     read_pkt_len_max = {
         void apply(inout bit<16> pkt_len_max, out bit<16> output) {
@@ -202,7 +182,6 @@ control Ingress(
     };
 
     Register<bit<16>,bit<(INDEX_WIDTH)>>(MAX_REGISTER_ENTRIES) reg_pkt_len_min;
-    /* Register read action */
     RegisterAction<bit<16>,bit<(INDEX_WIDTH)>,bit<16>>(reg_pkt_len_min)
     read_pkt_len_min = {
         void apply(inout bit<16> pkt_len_min, out bit<16> output) {
@@ -217,7 +196,6 @@ control Ingress(
     };
 
     Register<bit<16>,bit<(INDEX_WIDTH)>>(MAX_REGISTER_ENTRIES) reg_pkt_len_total;
-    /* Register read action */
     RegisterAction<bit<16>,bit<(INDEX_WIDTH)>,bit<16>>(reg_pkt_len_total)
     read_pkt_len_total = {
         void apply(inout bit<16> pkt_len_total, out bit<16> output) {
@@ -248,7 +226,6 @@ control Ingress(
 
     /* Assign class if at leaf node */
     action SetClass0(bit<8> classe) {
-        // meta.class0 = classe;
         meta.class0 = classe;
         meta.class_model1 = classe;
     }
@@ -274,7 +251,6 @@ control Ingress(
     }
 
     action set_final_class(bit<8> class_result) {
-        // meta.final_class = class_result;
         meta.class_model2 = class_result;
     }
 
@@ -465,21 +441,19 @@ control Ingress(
             hdr.ipv4.protocol: exact;
         }
         actions = {set_flow_action; @defaultonly set_def_flow_action;}
-        // size = 25000;
         size = 63000;
         const default_action = set_def_flow_action();
     }
 
     apply {
         flow_action_table.apply();
-        // Forward, if flow is already classified as Others. Otherwise, run model.
+        // Forward, if flow is already classified. Otherwise, run model.
         bit<32> tmp_flow_ID;
         //compute flow_ID and hash index
         get_flow_ID(meta.hdr_srcport, meta.hdr_dstport);
         get_register_index(meta.hdr_srcport, meta.hdr_dstport);
         // code here to execute if table experienced a hit
         if (meta.f_action == 50) {
-
             if (hdr.notify.is_flow_classified == 1){
                 tmp_flow_ID = read_only_flow_ID.execute(meta.register_index);
                 if(meta.flow_ID == tmp_flow_ID){ // No hash collision
@@ -514,7 +488,6 @@ control Ingress(
                         meta.pkt_count = 0;
                     }
                     else { // not first packet and not hash collision
-                        //read and update packet count
                         meta.pkt_count = read_pkt_count.execute(meta.register_index);
                         meta.pkt_len_max = read_pkt_len_max.execute(meta.register_index);
                         meta.pkt_len_min = read_pkt_len_min.execute(meta.register_index);
@@ -563,13 +536,14 @@ control Ingress(
                         update_classified_flag_model1.execute(meta.register_index);
                         // If the packet classified as Others in the first model
                         if (meta.class0 == 6){ // OTHERS
-                            set_final_class(meta.class1);
+                            set_final_class(meta.class_model2);
                         }
                         else{  // ONE OF THE CLASSES
                             set_final_class(meta.class0);
                             if (meta.pkt_count == 3){
                                 meta.is_refresh = 1; // Store the result and refresh the memory
                                 meta.is_flow = 1;
+                                // hdr.notify.is_flow_classified = 1; // Notify the upstream switches about tft the flow is classified
                             }
                         }
                     }
@@ -577,7 +551,7 @@ control Ingress(
                         meta.class_model1 = read_classified_flag_model1.execute(meta.register_index);
                         // If the packet classified as Others in the first model
                         if (meta.class_model1 == 6){ // OTHERS
-                            set_final_class(meta.class1);
+                            set_final_class(meta.class_model2);
                         }
                         else{  // ONE OF THE CLASSES
                             set_final_class(meta.class_model1);
@@ -586,27 +560,22 @@ control Ingress(
                             meta.is_refresh = 1; // Store the result and refresh the memory
                             meta.is_flow = 1;
                         }
-                        update_classified_flag_model2.execute(meta.register_index);
+                        // update_classified_flag_model2.execute(meta.register_index);
                     } 
 
                     // SET CLASS and NOTIFICATION DATA
-                    if (hdr.notify.inf_result < 5){ // If the flow is classified as one of the classes in upstream switches.
+                    if (hdr.notify.inf_result < 5){
                         // If the flow is classified as Others, just refresh the memory if necessary but do not store the result
                         meta.is_store = 0; // do not store the result
                     }
                     else {
                         // If the flow is classified as Others in the downstream switch, tag with the result obtained in the current switch.
-                        hdr.notify.inf_result = meta.final_class;
-                        hdr.notify.pkt_count = meta.pkt_count;
                         meta.is_store = 1;
                     }
                     ig_dprsr_md.digest_type = 1;        // activating the digest after classification
                 }
-                // else {
-                //     meta.f_action = read_classified_flag_model2.execute(meta.register_index);
-                // } 
             }
-        }
+        } 
     } //END OF APPLY
 } //END OF INGRESS CONTROL
 
@@ -629,8 +598,7 @@ control IngressDeparser(packet_out pkt,
 
         if (ig_dprsr_md.digest_type == 1) {
             
-            // digest.pack({hdr.ipv4.src_addr, hdr.ipv4.dst_addr, meta.hdr_srcport, meta.hdr_dstport, hdr.ipv4.protocol, meta.final_class, hdr.notify.inf_result, meta.pkt_count, meta.register_index});
-            digest.pack({hdr.ipv4.src_addr, hdr.ipv4.dst_addr, meta.hdr_srcport, meta.hdr_dstport, hdr.ipv4.protocol, meta.final_class, meta.pkt_count, meta.register_index, meta.is_refresh, meta.is_store, meta.is_flow});
+            digest.pack({hdr.ipv4.src_addr, hdr.ipv4.dst_addr, meta.hdr_srcport, meta.hdr_dstport, hdr.ipv4.protocol, meta.class_model2, meta.pkt_count, meta.register_index, meta.is_refresh, meta.is_store, meta.is_flow});
         }
 
         /* we do not update checksum because we used ttl field for stats*/

@@ -70,32 +70,28 @@ print('Flow-action table:', flow_act_tbl)
 
 # Target pipe_id=0xffff
 target = bfrt_client.Target(device_id=0, pipe_id=0xffff)
-header = 'source_addr,destin_addr,source_port,destin_port,protocol,pkt_count,is_flow,flow_packet_class'
 
-# latency_list = []
-count = 0
+header = 'source_addr,destin_addr,source_port,destin_port,protocol,pkt_count,is_flow,flow_packet_class'
 
 with open(filename_out, "w") as text_file:
     text_file.write(header)
     text_file.write("\n")
 
-flow_counter = 0
 while True:
-
     try:
-        digest = interface.digest_get(timeout=2800)
+        digest = interface.digest_get(timeout=8000)
     except:
+        f = open("x.txt", "a")
+        f.write('---- \n')
+        f.close()
         break
 
     recv_target = digest.target
+
     digest_type = 1
     data_list = learn_filter.make_data_list(digest)
 
-    
-    # print("\n\nDigest received with length: ", len(data_list_lat))
     if digest_type == 1:
-        count = count + 1
-        flow_counter = flow_counter + len(data_list)
 
         keys_reg = {'Ingress.reg_flow_ID': [],'Ingress.reg_time_last_pkt': [],
                     'Ingress.reg_pkt_count': [], 'Ingress.reg_classified_flag': [],
@@ -130,20 +126,18 @@ while True:
                 if flow_packet_class == 5:
                     csv_row = source_addr + ',' + destin_addr + ',' + source_port + ',' + destin_port + ',' + protocol + ',' + pkt_count + ',' + is_flow + ',' + str(32) 
                 else:
-                    csv_row = source_addr + ',' + destin_addr + ',' + source_port + ',' + destin_port + ',' + protocol + ',' + str(pkt_count) + ',' + is_flow + ',' + str(flow_packet_class) 
+                    csv_row = source_addr + ',' + destin_addr + ',' + source_port + ',' + destin_port + ',' + protocol + ',' + pkt_count + ',' + is_flow + ',' + str(flow_packet_class) 
             
             with open(filename_out, "a") as text_file:
                 text_file.write(csv_row)
                 text_file.write("\n")
        
-
             if (data_dict['packet_num'] == 3):
                 keys_table.append(flow_act_tbl.make_key(
                                 [bfrt_client.KeyTuple('hdr.ipv4.src_addr', data_dict['source_addr']), bfrt_client.KeyTuple('hdr.ipv4.dst_addr', data_dict['destin_addr']), 
                                 bfrt_client.KeyTuple('meta.hdr_dstport', data_dict['destin_port']), bfrt_client.KeyTuple('meta.hdr_srcport', data_dict['source_port']),
-                                bfrt_client.KeyTuple('hdr.ipv4.protocol', data_dict['protocol'])]))
+                                bfrt_client.KeyTuple('meta.ip_proto', data_dict['protocol'])]))
                 
-
                 datas_table.append(flow_act_tbl.make_data([
                                     bfrt_client.DataTuple('f_action', flow_packet_class)
                                 ], 'Ingress.set_flow_action'))
@@ -152,8 +146,6 @@ while True:
                     reg_tbl = bfrt_info.table_get(reg_name)
                     keys_reg[reg_name].append(reg_tbl.make_key([bfrt_client.KeyTuple('$REGISTER_INDEX', register_index)]))
                     datas_reg[reg_name].append(reg_tbl.make_data([bfrt_client.DataTuple(reg_name+'.f1', 0)]))
-
-
 
         flow_act_tbl.entry_mod(target, keys_table, datas_table, p4_name=bfrt_info.p4_name_get())
         for reg_name in registers:

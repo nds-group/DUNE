@@ -26,6 +26,7 @@ import bfrt_grpc.client as bfrt_client
 import time
 import socket, struct
 
+# filename_out = 'ToN-IoT_CL2_CLID0.csv'
 filename_out = sys.argv[1]
 
 #
@@ -69,36 +70,28 @@ print('Flow-action table:', flow_act_tbl)
 # Target pipe_id=0xffff
 target = bfrt_client.Target(device_id=0, pipe_id=0xffff)
 
-header = 'source_addr,destin_addr,source_port,destin_port,protocol,pkt_count,flow_packet_class'
+header = 'source_addr,destin_addr,source_port,destin_port,protocol,pkt_count,is_flow,flow_packet_class'
 
-# latency_list = []
-count = 0
 
 with open(filename_out, "w") as text_file:
     text_file.write(header)
     text_file.write("\n")
 
-flow_counter = 0
 while True:
-
-    # digest = interface.digest_get(timeout=120)
     try:
         digest = interface.digest_get(timeout=4000)
     except:
+        f = open("x.txt", "a")
+        f.write('---- \n')
+        f.close()
         break
 
-
     recv_target = digest.target
+
     digest_type = 1
     data_list = learn_filter.make_data_list(digest)
     
-    # print('Digest type: ', digest_type)
-
-    
-    # print("\n\nDigest received with length: ", len(data_list_lat))
     if digest_type == 1:
-        count = count + 1
-        flow_counter = flow_counter + len(data_list)
 
         keys_reg = {'Ingress.reg_flow_ID': [],'Ingress.reg_time_last_pkt': [],
                     'Ingress.reg_pkt_count': [], 'Ingress.reg_classified_flag': [],
@@ -119,12 +112,12 @@ while True:
             flow_packet_class = data_dict['class_value']
             pkt_count = str(data_dict['packet_num'])
             register_index = data_dict['register_index']
+            is_flow = str(data_dict['is_flow']) 
             
-
             if flow_packet_class == 2:
-                csv_row = source_addr + ',' + destin_addr + ',' + source_port + ',' + destin_port + ',' + protocol + ',' + pkt_count + ',' + str(32)
+                csv_row = source_addr + ',' + destin_addr + ',' + source_port + ',' + destin_port + ',' + protocol + ',' + pkt_count + ',' + is_flow + ',' + str(32)
             else:
-                csv_row = source_addr + ',' + destin_addr + ',' + source_port + ',' + destin_port + ',' + protocol + ',' + pkt_count + ',' + str(flow_packet_class)
+                csv_row = source_addr + ',' + destin_addr + ',' + source_port + ',' + destin_port + ',' + protocol + ',' + pkt_count + ',' + is_flow + ',' + str(flow_packet_class)
 
             with open(filename_out, "a") as text_file:
                     text_file.write(csv_row)
@@ -139,7 +132,6 @@ while True:
                 datas_table.append(flow_act_tbl.make_data([
                                     bfrt_client.DataTuple('f_action', flow_packet_class)
                                 ], 'Ingress.set_flow_action'))
-
 
                 for reg_name in registers:
                     reg_tbl = bfrt_info.table_get(reg_name)

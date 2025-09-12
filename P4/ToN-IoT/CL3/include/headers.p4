@@ -63,21 +63,6 @@ header udp_h {
     bit<16> checksum;
 }
 
-// header tna_timestamps_h {
-    // bit<16> pad_1;
-    // bit<48> ingress_mac;
-    // bit<16> pad_2;
-    // bit<48> ingress_global;
-    // bit<14> pad_3;
-    // bit<18> enqueue;
-    // bit<14> pad_4;
-    // bit<18> dequeue_delta;
-    // bit<16> pad_5;
-    // bit<48> egress_global;
-    // bit<16> pad_6;
-    // bit<48> egress_tx;
-// }
-
 /***********************  H E A D E R S  ************************/
 struct my_ingress_headers_t {
     ethernet_h   ethernet;
@@ -109,15 +94,13 @@ struct my_ingress_metadata_t {
     bit<8> ack_flag_count;
     bit<8> psh_flag_count;
 
-    bit<8> ip_proto;
+    bit<16> ip_proto;
     bit<1> tcp_flag_ack;
     bit<1> tcp_flag_psh;
-
 
     bit<8> pkt_count;
     bit<32> time_last_pkt;
     bit<16> total_len;
-    // bit<32> flow_duration;
 
     bit<8> inf_class;
     bit<8> class0;
@@ -128,13 +111,8 @@ struct my_ingress_metadata_t {
     bit<8> digest_info; // used for either class or collision info
 
     bit<8> f_action; // For flow_action table
-    bit<2> is_store;                    // To decide if we store the classification results or not
+    bit<2> is_store; // To decide if we store the classification results or not
     bit<2> is_flow; 
-
-    // tna_timestamps_h tna_timestamps_hdr;
-    // ptp_metadata_t tx_ptp_md_hdr;
-
-    // bit<48> measured_latency;
 }
 
 struct flow_class_digest {  // maximum size allowed is 47 bytes
@@ -143,18 +121,10 @@ struct flow_class_digest {  // maximum size allowed is 47 bytes
     ipv4_addr_t  destin_addr;   // 32 bits
     bit<16> source_port;
     bit<16> destin_port;
-    bit<8> protocol;
+    bit<16> protocol;
     bit<8> class_value;
     bit<8> packet_num;
     bit<(INDEX_WIDTH)> register_index; // To send register index info to the controller
     bit<2> is_flow; 
-    bit<2> is_store; 
-    // total size is 2*2 + 2*4 + 2 + (16/8==2) = 16 bytes           
+    bit<2> is_store;        
 }
-
-// struct timestamp_digest {  // maximum size allowed is 47 bytes
-    
-//     bit<48>  latency;
-//     // total size is = 6 bytes           
-// }
-

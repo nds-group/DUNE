@@ -62,6 +62,7 @@ header udp_h {
     bit<16> udp_total_len;
     bit<16> checksum;
 }
+
 /***********************  H E A D E R S  ************************/
 struct my_ingress_headers_t {
     ethernet_h   ethernet;
@@ -84,19 +85,14 @@ struct my_ingress_metadata_t {
 
     bit<16> hdr_srcport;
     bit<16> hdr_dstport;
-    // bit<4> tcp_hdr_len;
     bit<16> tcp_windows_size;
     bit<16> udp_len;
-    // bit<16> pkt_len_max;
-    // bit<16> pkt_len_min;
     bit<16> pkt_len_total;
     bit<8> ip_proto;
-    // bit<1> tcp_flag_ack;
 
     bit<8> pkt_count;
     bit<32> time_last_pkt;
     bit<16> total_len;
-    // bit<32> flow_duration;
 
     bit<8> class0;
     bit<8> final_class;
@@ -106,6 +102,7 @@ struct my_ingress_metadata_t {
     bit<8> digest_info; // used for either class or collision info
 
     bit<8> f_action; // For flow_action table
+    bit<2> is_flow;
 }
 
 struct flow_class_digest {  // maximum size allowed is 47 bytes
@@ -118,7 +115,6 @@ struct flow_class_digest {  // maximum size allowed is 47 bytes
     bit<8> class_value;
     bit<8> packet_num;
     bit<(INDEX_WIDTH)> register_index; // To send register index info to the controller
-    // total size is 2*2 + 2*4 + 2 + (16/8==2) = 16 bytes           
+    bit<2> is_flow;      
 }
-
 

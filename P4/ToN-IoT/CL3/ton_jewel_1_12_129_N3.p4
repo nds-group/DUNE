@@ -54,7 +54,7 @@ parser IngressParser(packet_in        pkt,
     state parse_ipv4 {
         pkt.extract(hdr.ipv4);
         meta.total_len = hdr.ipv4.total_len;
-        meta.ip_proto  = hdr.ipv4.protocol;
+        // meta.ip_proto  = (bit<16>) hdr.ipv4.protocol;
         transition select(hdr.ipv4.protocol) {
             TYPE_TCP:  parse_tcp;
             TYPE_UDP:  parse_udp;
@@ -71,7 +71,6 @@ parser IngressParser(packet_in        pkt,
         meta.udp_len = 0;
         meta.tcp_flag_ack = hdr.tcp.ack;
         meta.tcp_flag_psh = hdr.tcp.psh;
-        // transition accept;
         transition parse_notify;
     }
 
@@ -84,7 +83,6 @@ parser IngressParser(packet_in        pkt,
         meta.udp_len = hdr.udp.udp_total_len;
         meta.tcp_flag_ack = 0;
         meta.tcp_flag_psh = 0;
-        // transition accept;
         transition parse_notify;
     }
 
@@ -123,7 +121,6 @@ control Ingress(
     // update_classified_flag = {
     update_classified_flag = {
         void apply(inout bit<8> classified_flag) {
-            // classified_flag = meta.final_class;
             classified_flag = hdr.notify.inf_result;
         }
     };
@@ -250,10 +247,7 @@ control Ingress(
 
     /* Assign class if at leaf node */
     action SetClass0(bit<8> classe) {
-        // meta.class0 = classe;
         hdr.notify.inf_result = classe;
-
-        // meta.final_class = meta.class0;
     }
 
     /* Forward to a specific port upon classification */
@@ -272,11 +266,6 @@ control Ingress(
     action set_final_class(bit<8> class_result) {
         meta.final_class = class_result;
     }
-
-    // action set_default_class() {
-    //     meta.final_class = meta.class1;
-
-    // }
     
     action set_flow_feats() {
         meta.pkt_len_max = 0;
@@ -420,27 +409,6 @@ control Ingress(
         const default_action = nop();
 	}
 
-
-    // table voting_table {
-    //     key = {
-    //         meta.class0: exact;
-    //         meta.class1: exact;
-    //         meta.class2: exact;
-    //     }
-    //     actions = {set_final_class; @defaultonly set_default_class;}
-    //     size = 1024;
-    //     const default_action = set_default_class();
-    // }
-    // table voting_table {
-    //     key = {
-    //         meta.class0: exact;
-    //         meta.class1: exact;
-    //     }
-    //     actions = {set_final_class; @defaultonly set_default_class;}
-    //     size = 1024;
-    //     const default_action = set_default_class();
-    // }
-
     /* Forwarding-Inference Block Table */
     table flow_action_table {
         key = {
@@ -448,35 +416,34 @@ control Ingress(
             hdr.ipv4.dst_addr: exact;
             meta.hdr_srcport: exact;
             meta.hdr_dstport: exact;
-            hdr.ipv4.protocol: exact;
+            meta.ip_proto: exact;
         }
         actions = {set_flow_action; @defaultonly set_def_flow_action;}
         // size = 25000;
-        size = 63000;
+        size = 60500;
         const default_action = set_def_flow_action();
     }
 
 
     apply {
+	    meta.ip_proto  = (bit<16>) hdr.ipv4.protocol;
         flow_action_table.apply();
-        // 
-        // Forward, if flow is already classified as Others. Otherwise, run model.
-        // code here to execute if table experienced a hit
-        
         bit<32> tmp_flow_ID;
         //compute flow_ID and hash index
         get_flow_ID(meta.hdr_srcport, meta.hdr_dstport);
         get_register_index(meta.hdr_srcport, meta.hdr_dstport);
+
+        // Forward, if flow is already classified. Otherwise, run model first.
+        // Code here to execute if table experienced a hit
         if (meta.f_action == 50) {
             if (hdr.notify.is_flow_classified == 1){
                 meta.pkt_count = 3;  // to make it clear the register
                 meta.is_store = 0;
+                meta.final_class = 1;
                 tmp_flow_ID = read_only_flow_ID.execute(meta.register_index);
-                if(meta.flow_ID == tmp_flow_ID){ // no hash collision
+                if(meta.flow_ID == tmp_flow_ID){        // no hash collision
                     ig_dprsr_md.digest_type = 1;        // activating the digest after classification
                 }
-                // // do not store the result but clear the register
-                ipv4_forward(4);
             }
             else {
                 // modify timestamp register
@@ -491,6 +458,7 @@ control Ingress(
                     meta.pkt_len_total = read_pkt_len_total.execute(meta.register_index);
                     meta.ack_flag_count = read_ack_flag_count.execute(meta.register_index);
                     meta.psh_flag_count = read_psh_flag_count.execute(meta.register_index);
+
                 }
                 else { // not the first packet - get flow_ID from register
                     meta.is_first = 0;
@@ -499,7 +467,6 @@ control Ingress(
                         meta.pkt_count = 0;
                     }
                     else { // not first packet and not hash collision
-                        //read and update packet count
                         meta.pkt_count = read_pkt_count.execute(meta.register_index);
                         meta.pkt_len_max = read_pkt_len_max.execute(meta.register_index);
                         meta.pkt_len_min = read_pkt_len_min.execute(meta.register_index);
@@ -508,7 +475,8 @@ control Ingress(
                         meta.psh_flag_count = read_psh_flag_count.execute(meta.register_index);
                     } //END OF CHECK ON IF NO COLLISION
                 } // END OF CHECK ON WHETHER FIRST CLASS
-                if (hdr.notify.inf_result == 2){ //It it is classified as Others in the upstream switch
+                if (hdr.notify.inf_result == 2){
+                    // hdr.notify.is_flow_classified = 0;
                     meta.is_store = 1;
                     meta.is_flow = 1;
                     if (meta.pkt_count < 4){
@@ -532,30 +500,33 @@ control Ingress(
                         // apply code tables to assign labels
                         code_table0.apply();
 
-                        // // decide final class
                         hdr.notify.inf_result = hdr.notify.inf_result + 1;
-                        
                         update_classified_flag.execute(meta.register_index);
 
+                        /* Commented to handle stage issues */
+                        // hdr.notify.pkt_count = meta.pkt_count;
+                        // 
                         // To refresh the register after classification 
-                        //!!!! We do not update hdr.notify.is_flow_classified because of stage issues :/ Downstream model handles it in a different way
-                        // if (meta.final_class == 5) {
+                        // if (hdr.notify.inf_result == 5) {
                         //     hdr.notify.is_flow_classified = 0;
                         // }
+
                         ig_dprsr_md.digest_type = 1;        // activating the digest after classification
                     }
                     else {
-                       meta.f_action  = read_classified_flag.execute(meta.register_index);
+                        /* Adapted to handle stage issues: Here, we make the packet always forwarded to the next switch untill the forwarding table is updated. */
+                        hdr.notify.inf_result = 5;
+                        // meta.f_action  = read_classified_flag.execute(meta.register_index); // commented to handle the stage issue
                     } 
                 }
             }
-            ipv4_forward(4);
+            ipv4_forward(160);
         }  
         if (meta.f_action == 5) {
             hdr.notify.inf_result = 5;
             hdr.notify.is_flow_classified = 0;
             hdr.notify.pkt_count = 4;
-            ipv4_forward(4);
+            ipv4_forward(160);
         }
     } //END OF APPLY
 } //END OF INGRESS CONTROL
@@ -578,7 +549,7 @@ control IngressDeparser(packet_out pkt,
     apply {
 
         if (ig_dprsr_md.digest_type == 1) {
-            digest.pack({hdr.ipv4.src_addr, hdr.ipv4.dst_addr, meta.hdr_srcport, meta.hdr_dstport, hdr.ipv4.protocol,hdr.notify.inf_result, meta.pkt_count, meta.register_index, meta.is_flow, meta.is_store});
+            digest.pack({hdr.ipv4.src_addr, hdr.ipv4.dst_addr, meta.hdr_srcport, meta.hdr_dstport,meta.ip_proto, hdr.notify.inf_result, meta.pkt_count, meta.register_index, meta.is_flow, meta.is_store});
         }
 
         /* we do not update checksum because we used ttl field for stats*/

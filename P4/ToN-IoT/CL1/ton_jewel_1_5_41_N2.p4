@@ -66,11 +66,8 @@ parser IngressParser(packet_in        pkt,
         pkt.extract(hdr.tcp);
         meta.hdr_dstport = hdr.tcp.dst_port;
         meta.hdr_srcport = hdr.tcp.src_port;
-        // meta.tcp_hdr_len = hdr.tcp.data_offset;
         meta.tcp_windows_size = hdr.tcp.window;
-        // meta.tcp_flag_ack = hdr.tcp.ack;
         meta.udp_len = 0;
-        // transition accept;
         transition parse_notify;
     }
 
@@ -78,11 +75,8 @@ parser IngressParser(packet_in        pkt,
         pkt.extract(hdr.udp);
         meta.hdr_dstport = hdr.udp.dst_port;
         meta.hdr_srcport = hdr.udp.src_port;
-        // meta.tcp_flag_ack = 0;
-        // meta.tcp_hdr_len = 0;
         meta.tcp_windows_size = 0;
         meta.udp_len = hdr.udp.udp_total_len;
-        // transition accept;
         transition parse_notify;
     }
 
@@ -111,14 +105,12 @@ control Ingress(
     Register<bit<8>,bit<(INDEX_WIDTH)>>(MAX_REGISTER_ENTRIES) reg_classified_flag;
     /* Register read action */
     RegisterAction<bit<8>,bit<(INDEX_WIDTH)>,bit<8>>(reg_classified_flag)
-    // update_classified_flag = {
     read_classified_flag = {
         void apply(inout bit<8> classified_flag, out bit<8> output) {
             output = classified_flag;
         }
     };
     RegisterAction<bit<8>,bit<(INDEX_WIDTH)>,bit<8>>(reg_classified_flag)
-    // update_classified_flag = {
     update_classified_flag = {
         void apply(inout bit<8> classified_flag) {
             classified_flag = meta.final_class;
@@ -126,14 +118,12 @@ control Ingress(
     };
 
     Register<bit<32>,bit<(INDEX_WIDTH)>>(MAX_REGISTER_ENTRIES) reg_flow_ID;
-    /* Register read action */
     RegisterAction<bit<32>,bit<(INDEX_WIDTH)>,bit<32>>(reg_flow_ID)
     update_flow_ID = {
         void apply(inout bit<32> flow_ID) {
             flow_ID = meta.flow_ID;
         }
     };
-    /* Register read action */
     RegisterAction<bit<32>,bit<(INDEX_WIDTH)>,bit<32>>(reg_flow_ID)
     read_only_flow_ID = {
         void apply(inout bit<32> flow_ID, out bit<32> output) {
@@ -142,7 +132,6 @@ control Ingress(
     };
 
     Register<bit<32>,bit<(INDEX_WIDTH)>>(MAX_REGISTER_ENTRIES) reg_time_last_pkt;
-    /* Register read action */
     RegisterAction<bit<32>,bit<(INDEX_WIDTH)>,bit<32>>(reg_time_last_pkt)
     read_time_last_pkt = {
         void apply(inout bit<32> time_last_pkt, out bit<32> output) {
@@ -153,7 +142,6 @@ control Ingress(
 
     //registers for ML inference - features
     Register<bit<8>,bit<(INDEX_WIDTH)>>(MAX_REGISTER_ENTRIES) reg_pkt_count;
-    /* Register read action */
     RegisterAction<bit<8>,bit<(INDEX_WIDTH)>,bit<8>>(reg_pkt_count)
     read_pkt_count = {
         void apply(inout bit<8> pkt_count, out bit<8> output) {
@@ -163,7 +151,6 @@ control Ingress(
     };
 
     Register<bit<16>,bit<(INDEX_WIDTH)>>(MAX_REGISTER_ENTRIES) reg_pkt_len_total;
-    /* Register read action */
     RegisterAction<bit<16>,bit<(INDEX_WIDTH)>,bit<16>>(reg_pkt_len_total)
     read_pkt_len_total = {
         void apply(inout bit<16> pkt_len_total, out bit<16> output) {
@@ -213,10 +200,12 @@ control Ingress(
     action set_final_class(bit<8> class_result) {
         meta.final_class = class_result;
     }
+
     
     action set_flow_feats() {
         meta.pkt_len_total = 0;
         hdr.notify.is_flow_classified = 0;
+        meta.is_flow = 1;
     }
 
     // [[4, 4, 14, 7, 11]]
@@ -297,15 +286,14 @@ control Ingress(
             hdr.ipv4.protocol: exact;
         }
         actions = {set_flow_action; @defaultonly set_def_flow_action;}
-        size = 63000;
+        size = 61000;
         const default_action = set_def_flow_action();
     }
 
     apply {
         flow_action_table.apply();
-        // 
-        // Forward, if flow is already classified as Others. Otherwise, run model.
-        // code here to execute if table experienced a hit
+        // Forward, if flow is already classified. Otherwise, run model first.
+        // Code here to execute if table experienced a hit
         if (meta.f_action == 50) {
             bit<32> tmp_flow_ID;
             //compute flow_ID and hash index
@@ -329,11 +317,11 @@ control Ingress(
                     meta.pkt_count = 0;
                 }
                 else { // not first packet and not hash collision
-                    //read and update packet count
                     meta.pkt_count = read_pkt_count.execute(meta.register_index);
                     meta.pkt_len_total = read_pkt_len_total.execute(meta.register_index);
                 } //END OF CHECK ON IF NO COLLISION
             } // END OF CHECK ON WHETHER FIRST CLASS
+            meta.is_flow = 1;
             if (meta.pkt_count < 3){
                 if(meta.pkt_count < 2){
                     set_flow_feats();
@@ -351,12 +339,14 @@ control Ingress(
 
                 update_classified_flag.execute(meta.register_index);
 
-                if (meta.final_class < 2) {
+                if (meta.final_class == 2) { // classified as Others
                     hdr.notify.is_flow_classified = 0;
                 }
+                
                 hdr.notify.inf_result = meta.final_class;
                 hdr.notify.pkt_count = meta.pkt_count;
                 ig_dprsr_md.digest_type = 1;        // activating the digest after classification
+                ipv4_forward(312);
             }
             else {
                 meta.f_action  = read_classified_flag.execute(meta.register_index);
@@ -366,6 +356,7 @@ control Ingress(
             hdr.notify.inf_result = meta.f_action;
             hdr.notify.is_flow_classified = 0;
             hdr.notify.pkt_count = 3;
+            ipv4_forward(312);
         }
     } //END OF APPLY
 } //END OF INGRESS CONTROL
@@ -389,8 +380,7 @@ control IngressDeparser(packet_out pkt,
 
         if (ig_dprsr_md.digest_type == 1) {
             
-            // digest.pack({hdr.ipv4.src_addr, hdr.ipv4.dst_addr, meta.hdr_srcport, meta.hdr_dstport, hdr.ipv4.protocol, meta.final_class, hdr.notify.inf_result, meta.pkt_count, meta.register_index});
-            digest.pack({hdr.ipv4.src_addr, hdr.ipv4.dst_addr, meta.hdr_srcport, meta.hdr_dstport, hdr.ipv4.protocol, hdr.notify.inf_result, meta.pkt_count, meta.register_index});
+            digest.pack({hdr.ipv4.src_addr, hdr.ipv4.dst_addr, meta.hdr_srcport, meta.hdr_dstport, hdr.ipv4.protocol, hdr.notify.inf_result, meta.pkt_count, meta.register_index, meta.is_flow});
         }
 
         /* we do not update checksum because we used ttl field for stats*/
