@@ -400,7 +400,7 @@ for qsfp_cage in [1, 5, 13, 17]:
                         ", dst_addr="+str(int(ipaddress.ip_address(id_values[1])))+ \
                         ", hdr_srcport="+str(id_values[2])+ \
                         ", hdr_dstport="+str(id_values[3])+ \
-                        ", protocol="+str(id_values[4])+ \
+                        ", ip_proto="+str(id_values[4])+ \
                         ", f_action="+str(50)+")", file=entries_file)
         except:
             continue
