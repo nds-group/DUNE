@@ -3,7 +3,7 @@
 This repository contains the source code of **DUNE**, a novel framework for distributed ML inference in the user plane.
 
 - 📄 **[PDF pre-print of DUNE](https://dspace.networks.imdea.org/handle/20.500.12761/1883)**, published in IEEE INFOCOM 2025.
-- 🏆 **[DUNE received INFOCOM 2025 (Best paper award)](https://infocom2025.ieee-infocom.org/awards#:~:text=DUNE%3A%20Distributed%20Inference%20in%20the%20User%20Plane)**
+- 🏆 **[DUNE received INFOCOM 2025 Best paper award](https://infocom2025.ieee-infocom.org/awards#:~:text=DUNE%3A%20Distributed%20Inference%20in%20the%20User%20Plane)**
 
 ## Abstract
 The deployment of Machine Learning (ML) models in the user plane, enabling line-rate in-network inference, significantly reduces latency and improves the scalability of cases like traffic monitoring. Yet, integrating ML models into programmable network devices requires meeting stringent constraints in terms of memory resources and computing capabilities.
@@ -48,3 +48,20 @@ To reproduce the experiments in the paper, you must obtain the datasets (such as
 
 1. **Obtain Data:** Download the appropriate ground truth CSV files and PCAPs as detailed in the paper and the individual subdirectory `README.md` guidelines.
 2. **Placement:** Ensure these files are placed inside the `data/` or `pcaps/` directories as requested by each step's instructions before starting the execution.
+
+## Citation
+If you use this code or framework in your research, please kindly cite our INFOCOM 2025 paper:
+
+```bibtex
+@INPROCEEDINGS{11044678,
+  author={Bütün, Beyza and De Andres Hernandez, David and Gucciardo, Michele and Fiore, Marco},
+  booktitle={IEEE INFOCOM 2025 - IEEE Conference on Computer Communications}, 
+  title={DUNE: Distributed Inference in the User Plane}, 
+  year={2025},
+  volume={},
+  number={},
+  pages={1-10},
+  keywords={Sequential analysis;Accuracy;Computational modeling;Scalability;Memory management;Machine learning;Hardware;Delays;Resource management;Monitoring},
+  doi={10.1109/INFOCOM55648.2025.11044678}
+}
+```
