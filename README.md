@@ -2,13 +2,16 @@
 
 This repository contains the source code of **DUNE**, a novel framework for distributed ML inference in the user plane.
 
-📄 **[PDF pre-print of DUNE](https://dspace.networks.imdea.org/handle/20.500.12761/1883)**, published in IEEE INFOCOM 2025.
-🏆 **[DUNE received INFOCOM 2025 (Best paper award)](https://infocom2025.ieee-infocom.org/awards#:~:text=DUNE%3A%20Distributed%20Inference%20in%20the%20User%20Plane)**
+- 📄 **[PDF pre-print of DUNE](https://dspace.networks.imdea.org/handle/20.500.12761/1883)**, published in IEEE INFOCOM 2025.
+- 🏆 **[DUNE received INFOCOM 2025 (Best paper award)](https://infocom2025.ieee-infocom.org/awards#:~:text=DUNE%3A%20Distributed%20Inference%20in%20the%20User%20Plane)**
 
 ## Abstract
 The deployment of Machine Learning (ML) models in the user plane, enabling line-rate in-network inference, significantly reduces latency and improves the scalability of cases like traffic monitoring. Yet, integrating ML models into programmable network devices requires meeting stringent constraints in terms of memory resources and computing capabilities.
 
 Previous solutions have focused on implementing monolithic ML models within individual programmable network devices, which are limited by hardware constraints. In this paper, we propose `DUNE`, a novel framework that realizes for the first time user plane inference distributed across multiple programmable network devices. `DUNE` adopts fully automated approaches to (i) break large ML models into simpler sub-models that preserve inference accuracy while minimizing resource usage, and (ii) design the sub-models and their sequencing to enable an efficient distributed execution of joint packet- and flow-level inference.
+
+## Tutorial
+A comprehensive tutorial is available as a Jupyter notebook (`dune_tutorial.ipynb`). We strongly encourage users to explore this notebook as a starting point for getting acquainted with the DUNE framework and its pipeline steps.
 
 ## EXTENSION: DUNE in Software Switches (bmv2) and Arbitrary Topologies
 **`dune-bmv2/` (Submodule)**: This directory is a Git submodule corresponding to a software switch (bmv2) implementation of DUNE that enables reproducing the data-plane execution of DUNE in Mininet. It includes P4 programs, Mininet scripts, and instructions for setting up the environment and running the experiments. User without Hardware switches can use this submodule to validate the DUNE framework in a software-based environment.
