@@ -3,7 +3,15 @@ Used to train an unconstrained ML model and extract the relationships between in
 For this you can use the python programs and packages under the `src` folder.
 
 ## Getting Started
-All configurable parameters are provided via the `params.ini` file.
+
+First, set up your Python virtual environment and install the dependencies:
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+All configurable parameters are provided via the `src/params.ini` file.
 If you want to experiment, this is the only file you should modify.
 
 ### Configurable Parameters
@@ -20,9 +28,17 @@ case.
 - `features_set`: the list of features to be used
 
 ### Running the analysis
-After configuring the `params.ini` file you can trigger the analysis by:
+After configuring the `src/params.ini` file you can trigger the analysis by:
 ```bash
-source ./bin/activate
+cd src
+source ../venv/bin/activate
 python3 run_unconstrained_model_analysis.py
 ```
 You will see logs with the progress of the execution.
+
+### Pipeline Outputs
+This step generates two key files required by the next pipeline step (`model_partitioning`):
+1. `importance_weights.csv`: Contains the Per-Class Feature Importance (PCFI) values.
+2. `score_per_class.csv`: Contains the attained F1 score for each class.
+
+These files will be saved in your configured `results_dir_path`.

@@ -3,7 +3,15 @@ Data preparation for the ML model that targets hybrid packet- and flow-level cla
 For this you can use the python programs and packages under the `src` folder.
 
 ## Getting Started
-All configurable parameters are provided via the `params.ini` file.
+
+First, set up your Python virtual environment and install the dependencies:
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+All configurable parameters are provided via the `src/params.ini` file.
 If you want to experiment, this is the only file you should modify.
 
 ### Configurable Parameters
@@ -29,9 +37,10 @@ case.
 **IMPORTANT NOTE:** Flows with the same flow ID are considered unique if they originate from different PCAP traces.
 
 ### Running the analysis
-After configuring the `params.ini` file you can trigger the analysis by:
+After configuring the `src/params.ini` file you can trigger the analysis by:
 ```bash
-source ./bin/activate
+cd src
+source ../venv/bin/activate
 python3 generate_data.py
 ```
 You will see logs with the progress of the execution.
