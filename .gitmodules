@@ -1,3 +1,3 @@
 [submodule "dune-bmv2"]
 	path = dune-bmv2
-	url = git@github.com:nds-group/DUNE-bmv2.git
+	url = ../DUNE-bmv2.git
