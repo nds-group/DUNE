@@ -1,0 +1,17 @@
+\begin{table*}[h]
+\centering
+\caption{Results of \name ML sub-model planning for representative Fat-Tree sizes in the ToN-IoT use case. The communication direction is East-West, with each ingress leaf communicating with one egress leaf. The number of leafs and spines is per pod, one of which is the egress pod. The `nodes' column reports the number of nodes (\ie switches) running ML sub-models over the total number of nodes in the network, and the `\%' column that ratio expressed as a percentage.}
+\label{tab:planner_perf}
+\begin{tabular}{cccccccll}
+\toprule
+DC Size & Pods & Leafs & Spines & Super spines & Paths & Nodes & \% & Notes \\
+\midrule
+XS & 2  & 2  & 2  & 1 & 4    & 8/10  & 80\% & Tiny DC: testing, labs \\
+S  & 4  & 4  & 3  & 1 & 12   & 19/31 & 61\% & Small DC: edge, small enterprise \\
+M  & 8  & 6  & 4  & 2 & 192  & 46/88 & 52\% & Medium DC: medium enterprise, small offsite \\
+L  & 16 & 8  & 5  & 2 & 960 & 98/218 & 45\% & Large DC: large enterprise, medium offsite \\
+XL & 32 & 10 & 7  & 4 & 3100 & 262/572 & 45\% & Very large DC: hyperscalers \\
+\bottomrule
+\end{tabular}
+\vspace*{-13pt}
+\end{table*}

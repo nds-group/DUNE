@@ -1,0 +1,221 @@
+%%This is a very basic article template.
+%%There is just one section and two subsections.
+\documentclass[10pt,compsoc,onecolumn,a4paper]{IEEEtran}
+\usepackage{enumitem}
+\usepackage{setspace}
+\usepackage{url} 
+\usepackage{xspace}
+\usepackage{xcolor}
+\usepackage{amsmath}
+\addtolength{\topmargin}{20pt}
+\addtolength{\oddsidemargin}{20pt}
+\addtolength{\evensidemargin}{20pt}
+\addtolength{\textwidth}{-40pt}
+\addtolength{\textheight}{-40pt}
+
+\newcommand{\ls}[1]
+  {\dimen0=\fontdimen6\the\font
+   \lineskip=#1\dimen0
+   \advance\lineskip.5\fontdimen5\the\font
+   \advance\lineskip-\dimen0
+   \lineskiplimit=.9\lineskip
+   \baselineskip=\lineskip
+   \advance\baselineskip\dimen0
+   \normallineskip\lineskip
+   \normallineskiplimit\lineskiplimit
+   \normalbaselineskip\baselineskip
+   \ignorespaces
+}
+
+%%%% ------------   Names   ------------ %%%%
+
+\newcommand{\model}[1]{\texttt{\fontsize{9}{11}\selectfont #1}\xspace}
+
+\newcommand{\name}{\textnormal{\model{Flowrest}}\xspace}
+
+\newcommand{\lossleap}{\model{LossLeap (change)}\xspace}
+
+\newcommand{\metacritic}{\texttt{\fontsize{9}{11}\selectfont meta-critic}\xspace}
+
+\newcommand{\datasetTraf}{\texttt{\fontsize{9}{11}\selectfont trafficApp}\xspace}
+\newcommand{\datasetPower}{\texttt{\fontsize{9}{11}\selectfont powerGrid}\xspace}
+\newcommand{\datasetHouse}{\texttt{\fontsize{9}{11}\selectfont homeEnergy}\xspace}
+\newcommand{\datasetMfour}{\texttt{\fontsize{9}{11}\selectfont M4data}\xspace}
+
+\newcommand{\bmmonolithic}{\texttt{\fontsize{9}{11}\selectfont bm-monolithic}\xspace}
+\newcommand{\bmsplit}{\texttt{\fontsize{9}{11}\selectfont bm-split}\xspace}
+\newcommand{\bmmerged}{\texttt{\fontsize{9}{11}\selectfont bm-merged}\xspace}
+
+\newcommand{\fixedLR}{\model{fixedLR}}
+\newcommand{\expLR}{\model{expLR}}
+\newcommand{\fixedNoise}{\model{fixedNoise}}
+\newcommand{\noNoise}{\model{noNoise}}
+\newcommand{\grabocka}{\model{Grabocka}}
+
+\newcommand{\manual}{\model{Manual}}
+\newcommand{\disjoint}{\model{Disjoint}}
+\newcommand{\alamanual}{\model{ALA-manual}}
+\newcommand{\alamoldable}{\model{ALA-moldable}}
+\newcommand{\half}{\model{Half}}
+\newcommand{\iterative}{\model{Iterative}}
+
+\newcommand{\deepcog}{\model{DeepCog}}
+
+\newcommand{\catp}{\model{CATP}}
+
+\newcommand{\oracle}{\model{Oracle}}
+\newcommand{\llpknapsack}{\model{Knapsack}}
+
+\newcommand{\FullDU}{\model{fullDU}}
+\newcommand{\FullCU}{\model{fullCU}}
+
+
+%%% --------  COMMENTS  -------- %%%
+
+\newcommand{\mf}[1]{\textcolor{red}{[Marco -- #1]}}
+\newcommand{\ak}[1]{\textcolor{blue!70!black}{[Akem -- #1]}}
+\newcommand{\bb}[1]{\textcolor{teal}{[Beyza -- #1]}}
+\newcommand{\mg}[1]{\textcolor{orange}{[Michele -- #1]}}
+
+\newcommand{\ie}{\textnormal{i.e.},\xspace}
+\newcommand{\eg}{\textnormal{e.g.},\xspace}
+
+
+% \input{math_commands.tex}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\title{{\LARGE Response to Reviewers' Comments for Manuscript ID:   TNET-2025-00976}}
+
+\author{
+	Beyza B\"{u}t\"{u}n,
+    David de Andres Hernandez,
+    Alexis Carré, \\
+	Michele Gucciardo, and
+	Marco Fiore%
+}
+
+\begin{document}
+
+\renewcommand{\baselinestretch}{0.7} 
+\maketitle
+
+\ls{1.4}
+
+%\begin{doublespacing}
+
+We would like to express our gratitude to the Reviewers for their thorough and insightful feedback on our manuscript, and to the Associate Editor for his meticulous reading and coordination. We believe the suggestions we received have greatly contributed to the improvement of the manuscript.
+
+In this revised version of the manuscript, we have made every effort to address all the points raised by the Reviewers. A detailed list of responses to the Associate Editor's and Reviewers' comments follows, with our answers highlighted in {\it italic}. Please note that the reference numbering in this letter corresponds to the bibliography at the end of the letter and may differ from the numbering in the manuscript. 
+
+% We would also like to remark that our revised manuscript contains 17 pages and that we have obtained permission from the Editor-in-Chief to exceed the 16-page limit. The extra page is needed to accommodate the revisions stemming from the insightful comments we received from the Reviewers.
+
+\section*{Associate Editor}
+
+The reviewer(s) have recommended some minor revisions to your manuscript. Therefore, I invite you to respond to the reviewer(s)' comments and revise your manuscript.
+
+{\it 
+We want to thank Dr. Kai Chen for his consideration and feedback. We have responded to all the comments of the reviewers. The remainder of this letter contains point-to-point responses, whereas the corresponding modifications in the main manuscript are highlighted in {\color{blue} blue}.
+We hope that these changes meet the expectations of the Associate Editor.}
+
+%\end{itemize}
+
+%\newpage
+
+\section*{Reviewer 1}
+
+% {\bf Recommendation: Revise and resubmit as ``new''}
+
+\begin{itemize}
+
+\vspace*{6pt}
+\item[1.1] DUNE appears to have a strong dependence on routing stability and path predictability. Correct execution relies on packets traversing sub-models in a strict order, and the planner assumes pre-established routing paths as input. In dynamic networks with ECMP, fast rerouting (FRR), or traffic engineering (TE) changes, this assumption may be violated, potentially skipping sub-models or breaking ordering guarantees unless conservative over-deployment is used. While the paper accounts for complex topologies under fixed routing, a discussion of how DUNE design adapts under routing changes, failures, or load balancing would clarify the system’s robustness in realistic operational settings.
+
+\vspace*{4pt}
+{\it  We thank the reviewer for this constructive suggestion.
+DUNE indeed relies on path predictability to ensure in-order execution of the sub-models.
+For this reason, we believe the best approach is to provide the planner with the set of routes installed by the IGP (OSPF, IS-IS, RIP), since ECMP and FRR follow them.
+For FRR, this will incur over-provisioning, but we believe this is the price to pay if fast adaptation is required.
+In the case of TE, which typically involves a central controller (Path Computation Element (PCE)) to generate constraint-fulfilling paths, we believe that DUNE can be integrated with the controller so that the pipeline is re-executed whenever TE changes.
+Furthermore, we note that TE changes, unlike FRR changes, are predictable.
+\textbf{Modifications:} We have discussed the coexistence with these features in Section X.Y.
+
+}
+
+\vspace*{6pt}
+\item[1.2] The impact of multi-hop inference on end-to-end latency is underexplored. While each sub-model operates at line rate, distributing inference across multiple switches introduces sequential dependencies along the path, which may increase the time to final classification. It would strengthen the paper to either quantify end-to-end inference latency as a function of hop count (or number of sub-models), or to provide an analysis of the trade-off between accuracy gains and additional inference hops.
+
+\vspace*{4pt}
+{\it 
+We thank the reviewer for the insightful comment.
+We agree that distributing inference across multiple switches introduces additional delay for the final classification; however, this delay is linear and bounded, since each sub-model operates at line rate and introduces only a small per-hop delay. 
+
+Our measurements (\textbf{Table IV}) show that deploying inference adds around $100$ ns to the forwarding latency in each switch, which is a small overhead given the number of sub-models that can be executed along the path. Moreover, the total number of switches accommodating ML models in the evaluated topologies (\textbf{Table VI}) remains moderate, limiting the overall impact on end-to-end latency along a given packet path. {\color{red}update}
+
+Overall, this results in a predictable and modest increase in latency, and we add a brief explanation about it under \textbf{Section X}.
+}
+
+\end{itemize}
+
+\section*{Reviewer 2}
+
+% {\bf Recommendation: Author Should Prepare A Major Revision For A Second Review}
+
+\begin{itemize}
+
+\vspace*{6pt}
+\item[2.1] Regarding the planning part, since the model chains are predetermined, the ILP process merely aims to place these models along the paths and reduce resource usage at best effort. This might be convenient for homogeneous and symmetric topologies with many shared paths, like Fat tree, but may yield poor optimization results for heterogeneous topologies with more sparsed routing, like Dragonfly or those in WAN. Take the target topology's structure into consideration during the model splitting phase may help to better reduce the overall usage.
+
+\vspace*{4pt}
+{\it We thank the reviewer for this important observation.
+We agree that DUNE shines in topologies with high diameter, i.e., with overlapping paths, and does not yield much benefit in topologies with sparse routing, such as Dragonfly.
+In fact, we believe that incorporating the diameter as a constraint to the partitioning problem will ensure the deployment feasibility.
+However, as this constraint becomes more restrictive, the likelihood that DUNE offers an advantage over a monolithic model decreases.
+To exemplify this implication, we have evaluated different flavors of the Dragonfly topology and provided an open discussion in Section X.Y.
+}
+
+\vspace*{6pt}
+\item[2.2] The article has chosen a good starting point: The structure of RF/Decision Tree models aligns naturally with programmable switch architectures, and decision trees are easy to split. However, the expressiveness of these traditional ML structures might be insufficient. Deploying other model types using the DUNE framework introduces accuracy loss due to distillation, which limits the system's generality. Recent works like Pegasus (Zhang et al.) have discussed deployment strategies for DL models. Further discussion on splitting, distilling, and deploying over a broader range of model categories could be helpful and potentially lead to better final classification performance.
+
+\vspace*{4pt}
+IN PROGRESS!
+
+{\it We thank the reviewer for this insightful comment.  
+We would like to kindly clarify that DUNE neither relies on model distillation nor splits decision trees. Instead, it partitions the inference task (\eg classes) and trains independent sub-models from scratch, thereby avoiding the accuracy loss typically associated with distillation-based approaches.
+
+While DUNE can, in principle, accommodate different ML paradigms as the initial unconstrained model, our implementation focuses on Random Forests due to their explainability (much faster and more precise extraction of feature importance from a trained model) and strong empirical performance. In particular, we evaluated neural network models (e.g., MLPs) and observed that they achieved lower accuracy than Random Forests (\textbf{Section III-B}), which justifies our design choice.
+
+
+}
+
+\end{itemize}
+
+\section*{Reviewer 3}
+
+\begin{itemize}
+
+\vspace*{6pt}
+\item[3.1] My only comment is on the evaluation: the newly added planner should be evaluated more extensively. For example, how is it general to various platforms, including Tofino and Bmv2, and different topologies and workloads? It is better to compare it with some baselines.
+
+\vspace*{4pt}
+{\it We thank the reviewer for this valuable comment.
+Regarding extensive evaluation of the planner and its generability, the proposed planner works independently of the underlying platform, as it operates on the given inputs such as network topology and routing paths, without relying on hardware-specific features, as explained in \textbf{Section III-C}. Therefore, it is compatible with both software (Bmv2) and hardware targets (Tofino), without requiring modifications to the planner's logic.
+{\color{red} Dragonfly}
+
+Regarding the baselines to compare with, we note that the planner builds upon and extends the DINC framework~\cite{dinc-conext23}, and to the best of our knowledge, there is no directly comparable prior work addressing the same problem. Therefore, our evaluation focuses on demonstrating the performance of the overall workflow of DUNE under realistic constraints.
+
+We clarify these aspects in \textbf{Section X} in the revised manuscript.
+}
+
+\end{itemize}
+
+ %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  \bibliographystyle{IEEEtran}
+  \bibliography{references_reply, references}
+ %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\end{document}

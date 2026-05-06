@@ -1,0 +1,14 @@
+\begin{figure}
+    \footnotesize
+    \centering
+    \begin{bytefield}[bitheight=1.2\baselineskip]{32}
+    \bitheader{0,15,31} \\
+    \bitbox[tl]{16}{\texttt{EtherType}} & \bitbox{8}{\texttt{Level}} & \bitbox{8}{\texttt{Class}} \\
+    \bitbox{8}{\texttt{Collision}} & \bitbox{8}{\texttt{ModelID}} & 
+        \bitbox{16}[bgcolor=lightgray]{\texttt{PathID}} \\ %\textsuperscript{\ref{footnote:hdr}}} \\
+    \end{bytefield}
+    \caption{Structure of the \name header.
+    % The path ID is used in the Mininet environment to route flows easily.
+    For ease of implementation, all fields are padded to 8 bits. The \texttt{PathID} field is grayed to denote that it is only used in emulation environments to facilitate manual routing configurations.}
+    \label{fig:dune_header}
+\end{figure}

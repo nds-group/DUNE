@@ -1,0 +1,37 @@
+% \begin{table}[h]
+% \centering
+% \caption{Lorem Ipsum}
+% \label{tab:f1_comparison}
+% \begin{tabular}{lccccccc}
+% \toprule
+% % Unconstrained & Unconstrained & Unconstrained & Unconstrained & Unconstrained & Unconstrained & Unconstrained \\
+%  & normal & ransomware & ddos & xss & scanning & injection & password & Macro Avg.\\
+% \midrule
+% % Unconstrained & 0.972 & 0.634 & 0.719 & 0.735 & 0.507 & 0.653 & 0.599 \\
+% Linear & 0.967 & 0.535 & 0.677 & 0.728 & 0.488 & 0.635 & 0.582 \\
+% Fat Tree & 0.970 & 0.583 & 0.662 & 0.723 & 0.481 & 0.605 & 0.549 \\
+% \bottomrule
+% \end{tabular}
+% \end{table}
+\begin{table}
+\centering
+\caption{F1 score comparison for the ToN-IoT use case when \name is deployed in a 4-node linear topology and a 36-node Fat Tree topology, both emulated in software.}
+\label{tab:f1_comparison}
+\begin{tabular}{lccr}
+\toprule
+Class & Linear & Fat Tree & Deviation \\%Deviation (\%) \\
+\midrule
+Normal & 96.7 & 97.0 & 0.3 \\ %0.31 \\
+Ransomware & 53.5 & 58.3 & 4.8 \\ %8.97 \\
+DDoS & 67.7 & 66.2 & 1.5 \\ %2.21 \\
+XSS & 72.8 & 72.3 & 0.5 \\ %0.69 \\
+Scanning & 48.8 & 48.1 & 0.7 \\ %1.43 \\
+Injection & 63.5 & 60.5 & 3.0 \\ %4.72 \\
+Password & 58.2 & 54.9 & 3.3 \\ %5.67 \\
+\midrule
+\textbf{Macro} & 65.8 & 65.3 & 0.5 \\ %0.76 \\
+\textbf{Micro} & 71.5 & 70.4 & 1.1 \\ %1.54 \\
+\textbf{Weighted} & 71.1 & 69.8 & 0.3 \\ %1.83 \\
+\bottomrule
+\end{tabular}
+\end{table}

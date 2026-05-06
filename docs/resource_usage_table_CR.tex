@@ -1,0 +1,21 @@
+% Please add the following required packages to your document preamble:
+% \usepackage{multirow}
+\begin{table}[]
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lcccccccc}
+\toprule
+% \multicolumn{1}{c}{\textbf{Dataset}} & \textbf{Resource} & \textbf{Mousika} & \textbf{Flowrest} & \textbf{Netbeacon} & \textbf{Jewel}   & \textbf{DUNE-SW1} & \textbf{DUNE-SW2} & \textbf{DUNE-SW3} \\ \midrule
+                            &                   &\multicolumn{4}{c}{Benchmarks}          & \multicolumn{3}{c}{Dune}        \\ \cmidrule(lr){3-6} \cmidrule(l){7-9}
+\textbf{Dataset}            & \textbf{Resource} &Mousika & Flowrest & Netbeacon & Jewel  & SW1       & SW2     & SW3       \\ \midrule
+\multirow{2}{*}{\textbf{UNSW}}       & \textbf{TCAM}     & 27.80\% & 14.90\%  & 36.10\%   & 15.60\% & 9.40\%  & 8.70\%  & 8.70\%    \\ 
+                            & \textbf{SRAM}     & 0.70\%  & 10.10\%  & 13.50\%   & 12.40\% & 17.00\% & 13.00\% & 16.10\%   \\ \midrule
+\multirow{2}{*}{\textbf{ToN-IoT}}    & \textbf{TCAM}     & 1.40\%  & 14.20\%  & 20.50\%   & 5.60\%  & 2.40\%  & 5.60\%  & 8.00\%    \\ 
+                            & \textbf{SRAM}     & 5.50\%  & 14.70\%  & 19.50\%   & 15.10\% & 12.70\% & 16.40\% & 15.90\%   \\ \bottomrule
+
+\end{tabular}
+}
+\caption{TCAM and SRAM usage across all models.
+}
+\label{tab:resource_usage}
+\vspace*{-12pt}
+\end{table}

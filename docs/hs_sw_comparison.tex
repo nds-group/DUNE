@@ -1,0 +1,22 @@
+\begin{table}[t]
+\centering
+\caption{Comparison of v1model (bmv2) and TNA (Tofino1) architectures, across five dimensions (rows).}
+\label{tab:v1model_vs_tna}
+\begin{tabular}{@{} l p{2.8cm} p{4.1cm} @{}}
+\toprule
+\textbf{Dimension} & \textbf{v1model} & \textbf{TNA} \\
+\midrule
+\multirow[t]{2}{*}{Pipeline} & parser → ingress → & parser → multi-stage ingress →\\
+ & egress → deparser → & traffic manager → multi-stage egress → deparser \\ \midrule
+\multirow[t]{2}{*}{Resources} & Abstract, unlimited & Hardware-constrained \\
+& & (\eg stages, SRAM/TCAM, ALUs) \\ \midrule
+\multirow[t]{2}{*}{Externs} & Counters, meters, & Tables, selectors, multicast,\\
+&  registers, clone/resubmit & queueing, PRE, hashing \\ \midrule
+% Metadata & Minimal: ports, length, type & Detailed: ports, queues, timestamps, replication, drop reasons \\
+\multirow[t]{2}{*}{Limitations} & non-deterministic performance;& Stage/table limits; unsupported operations\\
+& timing precision & (\eg unbounded tables, arbitrary recirculation, arbitrary packet modifications) \\ \midrule
+Use case & Prototyping \& education & High-performance deployment \\
+\bottomrule
+\end{tabular}
+\vspace{-8pt}
+\end{table}

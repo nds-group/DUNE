@@ -1,0 +1,69 @@
+\begin{figure}
+    \centering
+    \begin{adjustbox}{width=\columnwidth}
+        \begin{tikzpicture}
+            % Help lines :
+            % \draw [help lines] (-1,1) grid (9,-5);
+
+            % States
+            \node (init) [
+                state,
+                initial,
+                % ultra thick,
+                thick,
+                initial above,
+                initial text={},
+            ] at (0,0) {Init.};
+            \node (hdrPL) [
+                state with output,
+            ] at (3.5,0) {Hdr \nodepart{lower} PL};
+            \node (hdrFL) [
+                state with output,
+            ] at (7.5,0) {Hdr \nodepart{lower} FL};
+            \node (pl) [
+                state,
+            ] at (0,-3) {PL};
+            \node (fl) [
+                state,
+            ] at (3.5,-3) {FL};
+            \node (table) [
+                state,
+                accepting,
+            ] at (7.5,-3) {Table};
+
+            % Edges
+            \path [-stealth, thick]
+                % Out of init
+                (init) edge node [above] {\texttt{(PL,K,1)}} (hdrPL)
+                (init) edge [bend left=30] node [above] {\texttt{(FL,K,1)}} (hdrFL)
+                (init) edge node [below] {\texttt{(*,U,1)}} (pl)
+
+                % Out of hdrPL
+                (hdrPL) edge[out=315, in=345, looseness=8] node[right] {\texttt{(PL,K,*)}} (hdrPL)
+                (hdrPL) edge node [above] {\texttt{(FL,K,*)}} (hdrFL)
+                (hdrPL) edge [] node [above left,align=center] {\texttt{(PL,U,*),}\\ \texttt{(FL,U,<N)}} (pl)
+                (hdrPL) edge node [] {\texttt{(FL,U,$\ge$N)}} (fl)
+
+                % Out of hdrFL
+                (hdrFL) edge [loop above] node [above] {\texttt{(FL,K, *)}}()
+                (hdrFL) edge node [above] {\texttt{<clear>}} (table)
+
+                % Out of PL
+                (pl) edge [loop below] node [below,align=center] {\texttt{(PL,U,*),}\\ \texttt{(FL,U,<N)}}()
+                (pl) edge [bend right=25] node [below right] {\texttt{(PL,K,*)}} (hdrPL)
+                (pl) edge [bend right=70] node [below right] {\texttt{(FL,K,*)}} (hdrFL)
+                (pl) edge node [below] {\texttt{(FL,U,N)}} (fl)
+
+                % Out of FL
+                % (fl) edge [loop below] node [below] {$(FL,U,>n)$}()
+                (fl) edge[out=225, in=255, looseness=8] node [below] {\texttt{(FL,U,>N)}}(fl)
+                (fl) edge [] node [below right] {\texttt{(FL,K,$\ge$N)}} (hdrFL)
+                (fl) edge node [below] {\texttt{<clear>}} (table)
+            ;
+        \end{tikzpicture}
+    \end{adjustbox}
+    \vspace{-2\baselineskip}
+    \caption{State machine for the local processing logic for one traffic flow at a switch. States indicate the action taken by the switch on incoming packets, whereas edges represent state transitions triggered by the reception of packets with specific \name header information.}
+\label{fig:state_machine}
+
+\end{figure}

@@ -1,0 +1,20 @@
+\begin{table}[t]
+% \begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}ccccccl@{}}
+\resizebox{\columnwidth}{!}{
+\begin{tabular}{@{}ccccccl@{}}
+\toprule
+\textbf{Dataset}                  & \textbf{F1-Score}      & Mousika & Flowrest & Netbeacon            & Jewel  & \multicolumn{1}{c}{Dune} \\ \midrule
+\multirow{3}{*}{\textbf{UNSW}}    & \textbf{Macro}         & 64.921\%  & 40.100\%     & 46.057\%               & 65.718\% &   \textbf{70.263\%}                       \\
+                                  & \textbf{Micro}         & 83.568\%  & 41.918\%   & 58.192\%               & 79.132\% &   \textbf{84.291\% }                      \\
+                                  & \textbf{Weighted}      & \textbf{83.96\%}   & 40.614\%   & 59.278\%               & 79.776\% &   83.296\%                       \\
+\midrule
+\multirow{3}{*}{\textbf{ToN-IoT}} & \textbf{Macro}         & 47.099\%  & 55.367\%   & 47.468\% & 61.718\% &  \textbf{67.388\%}                        \\
+                                  & \textbf{Micro}         & 42.335\%  & 62,038\%   & 42.380\% & 67.045\% &    \textbf{72.803\%}                      \\
+                                  & \textbf{Weighted}      & 37.826\%  & 61.723\%   & 38.024\% & 65.153\% &  \textbf{72.392\%}                        \\ \bottomrule
+\end{tabular}
+}
+\caption{Comparative evaluation of inference accuracy.} %based on \textit{flow-level} metric. 
+% The best value on each row is shown in \textbf{black bold} and the second best solution in \textbf{\color{purple}purple bold}.
+\label{tab:F1_scores}
+
+\end{table}

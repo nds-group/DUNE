@@ -1,0 +1,33 @@
+\begin{table}[]
+\resizebox{\columnwidth}{!}{
+%Version 1
+% \begin{tabular}{@{}lcccccrrc@{}}
+% \toprule
+%         & \multicolumn{4}{c}{Benchmarks}          & \multicolumn{4}{c}{Dune}                                                                      \\ \midrule
+% Dataset & Flowrest & Jewel  & Netbeacon & Mousika & SW1                             & \multicolumn{1}{c}{SW2} & \multicolumn{1}{c}{SW3} & TOTAL   \\ \midrule
+% UNSW    & 398,36   & 413,11 & 421,31    & 303,28  & \multicolumn{1}{r}{457,3770492} & 454,0983607             & 435,2459016             & 1137,70 \\ \midrule
+% ToN-IoT & 433,61   & 446,72 & 436,07    & 300,82  & \multicolumn{1}{r}{432,7868852} & 401,6393443             & 434,4262295             & 1183,61 \\ \bottomrule
+% \end{tabular}
+
+%Version 2
+% \begin{tabular}{@{}lcccccrrc@{}}
+% \toprule
+%         & Flowrest & Jewel  & Netbeacon & Mousika & \multicolumn{4}{c}{Dune}                                                                      \\ \cmidrule(l){7-10} 
+% Dataset &          &        &           &         & SW1                             & \multicolumn{1}{c}{SW2} & \multicolumn{1}{c}{SW3} & TOTAL   \\ \midrule
+% UNSW    & 398,36   & 413,11 & 421,31    & 303,28  & \multicolumn{1}{r}{457,3770492} & 454,0983607             & 435,2459016             & 1137,70 \\ 
+% ToN-IoT & 433,61   & 446,72 & 436,07    & 300,82  & \multicolumn{1}{r}{432,7868852} & 401,6393443             & 434,4262295             & 1183,61 \\ \bottomrule
+% \end{tabular}
+
+%Version 3
+\begin{tabular}{@{}lcccccrrc@{}}
+\toprule
+                 & \multicolumn{4}{c}{Benchmarks}          & \multicolumn{4}{c}{Dune}                                                                      \\ \cmidrule(lr){2-5} \cmidrule(l){6-9}
+\textbf{Dataset} & Mousika & Flowrest & Netbeacon & Jewel  & SW1                             & \multicolumn{1}{c}{SW2} & \multicolumn{1}{c}{SW3} & TOTAL   \\ \midrule
+\textbf{UNSW}    & 303,28  & 398,36   & 421,31    & 413,11 & \multicolumn{1}{r}{457,37} & 454,09             & 435,24             & 1137,70 \\
+\textbf{ToN-IoT }& 300,82  & 433,61   & 436,07    & 446,72 & \multicolumn{1}{r}{432,78} & 401,63             & 434,42             & 1183,61 \\ \bottomrule
+\end{tabular}
+}
+\caption{Latency, in \textit{ns}, of \name and the benchmarks.}
+\label{tab:latency}
+\vspace*{-8pt}
+\end{table}

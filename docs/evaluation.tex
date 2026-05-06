@@ -1,0 +1,120 @@
+
+We evaluate the performance of the heuristic algorithm presented in Section III  within the framework provided by a mathematical model of the problem.
+We model the problem as a Set Partitioning Problem (SPP) in its optimization version, known to be an NP-hard problem.
+As we will see, the time complexity of solving the SPP supports the need for an efficient heuristic like the one we propose.
+The model covers steps B (Feature Selection) and C (Clustering) by incorporating the feature selection problem into the set cost computation.
+\subsection{Set Partitioning Problem (SPP)}
+Let $C=\{c_1, \dots, c_m \}$ denote the set of classes, and $S=\{S_1,S_2,\dots,S_n\}$  denote the set of all possible class groupings.
+Also, let $P \subset \{1,2,\dots,n\}$.
+Then $P$ defines a partition of $C$ if and only if:
+\begin{enumerate}
+    \item $\bigcup_{j\in P}S_{j}= C$
+    \item $S_j \cap S_k = \emptyset \quad \forall j,k \in P, j\neq k$
+\end{enumerate}
+Let $c_j$ be the cost associated with $S_j$. Then $\sum_{j \in P} c_j$ is the cost of the partition $P$.
+As we will later show, we associate the cost with the attainable feature importance for each grouping to incorporate step B into the SPP.
+To aid in formulating the SPP as an optimization problem, we use a matrix representation of the groupings.
+Let $\pmb{A} \in \mathbb{Z}_2^{m \times n}$ be constructed with n columns $\pmb{s_j} \in \mathbb{Z}_2^m, j \in \{1,\dots,n\}$, representing the corresponding $S_j$ subsets.
+Then the $i$-th element in a column $\pmb{s_j}$ is 1 if $i$ is in $S_j$, 0 otherwise.
+If we associate $x_j \in \mathbb{Z}_2$ with column $j$ of $\pmb{A}$, we can write the constraints as
+$\pmb{Ax}=\pmb{1}$ and formulate the optimization problem as:
+\begin{equation}
+\min_{\pmb{x}} \pmb{c^Tx} \qquad \text{s.t.} \quad \pmb{Ax}=\pmb{1}, \pmb{x} \in \mathbb{Z}_2^n
+\label{eq:opt-objective}
+\end{equation}
+where $\pmb{c} \in \mathbb{R}^n$ provides the cost associated with each of the possible groupings $S_j$, and the constraints ensures the partitioning.
+
+To construct $\pmb{c}$, we compute the cost of each of the groupings specified by the $\pmb{s_j}$ columns of $\pmb{A}$.
+In fact, $\pmb{s_j}$ specifies a subset of classes.
+Provided that one can use all or a subset of the $r$ available features to identify items belonging to a given class, let $\pmb{\phi} \in \mathbb{Z}^r_2$ denote a feature subset, where the $i$-th element is 1 if feature $i$ is in the subset, and 0 otherwise.
+The importance analysis presented in Section~\ref{sub:feature_importance} provides $m$ distributions of weights (importance) $W_a=\{w_a^1,\dots, w_a^r \mid \sum_{i=1}^r w_a^i = 1 \}$, where $a$ denotes one class $C_a$. Letting $\pmb{w_a}$ be a vector representation of such set, we construct the matrix $\pmb{W}$ using them as rows.
+
+Then the cost $c_j$ associated with $\pmb{s_j}$ is given by
+\begin{equation}
+    c_j = (m -\Theta(\pmb{s_j})) \cdot \Phi(\pmb{s_j}),
+    \label{eq:opt-cost-v01}
+\end{equation}
+where the following optimization sub-problem
+\begin{equation}
+    \Theta(\pmb{s_j}) = \max_{\pmb{\phi}} \quad \pmb{s_j^TW\phi} - \underbrace{(\tfrac{1}{r}(\pmb{1^Ts_j})\pmb{1})^{\pmb{T}}\pmb{\phi}}_{\text{penalty}\footnotemark} \quad \text{s.t.} \quad \pmb{\phi} \in \mathbb{Z}_2^r
+    \footnotetext{uniform penalty for the selected classes and features}
+\end{equation}
+maximizes the cumulative importance of the selected features given $S_j$, 
+and
+\begin{equation}
+    \Phi(\pmb{s_j}) = max(F1_{s_j})-min(F1_{s_j})
+\end{equation}
+considers the $F_1$ scores of the classes specified by $s_j$ ($F1_{s_j}$).
+Note that in (3), the first term will be small if the sub-problem approaches the total importance n, thus favoring groupings with many classes.
+\da{Explain how to solve $\Theta(\pmb{s_j})$ efficiently}
+
+\subsection{Alternative formulations}
+
+% --- all formulations below operate on the optimization problem in (2) that sums up all costs over groups $S_j$
+%
+%Using the same notation above, and the problem in~\eqref{eq:opt-objective}, let us redefine the cost of using a set/cluster $\pmb{s_j}$ as
+%
+% --- the expression below does not work as it does not have an absolute term allowing to compare clusters of different size: i.e., a larger cluster that can potentially achieve a larger \Theta will also be confronted to a higher 'target' $\pmb{1^Ts_j}$.
+% \begin{equation}
+%     c_j=\pmb{1^Ts_j}-\Theta(\pmb{s_j}),
+%     \label{eq:opt-cost-v02}
+% \end{equation}
+% where $\pmb{1^Ts_j}$ is the maximum attainable value of $\Theta(\cdot)$, corresponding to the case where all classes in $\pmb{s_j}$ have maximum weight (\ie $1$) associated to a single and same feature --in which case a perfect model for all classes in $\pmb{s_j}$ can be trained using a single feature.
+%
+% --- the expression below has not been tested, but it is likely that \Theta^* would be the value obtained when \pmb{s_j} includes all classes, and close enough to m
+% \begin{equation}
+%     c_j=\Theta^*-\Theta(\pmb{s_j}),
+%     \label{eq:opt-cost-v02}
+% \end{equation}
+% where $\Theta^*=\max_{\pmb{s_j}}\Theta(\pmb{s_j})$ is the maximum attainable value of $\Theta(\cdot)$.
+
+Using the same notation above, let us redefine the optimization problem as
+\begin{equation}
+\max_{\pmb{x}} \frac{m-\pmb{1^Tx}}{m-1}\cdot\pmb{g^Tx} \qquad \text{s.t.} \quad \pmb{Ax}=\pmb{1}, \pmb{x} \in \mathbb{Z}_2^n
+\label{eq:opt-objective-v02}
+\end{equation}
+where $\pmb{g} \in \mathbb{R}^n$ provides the gain associated with each of the possible groupings $S_j$, $\pmb{1^Tx}$ is the number of non-zero elements of $\pmb{x}$ and the constraints ensure that the solution is a partitioning of $C$. The expression in~\eqref{eq:opt-objective-v02} aims at maximizing the product of ($i$) the \textit{compactness} of the model that linearly decreases from $1$ to $0$ when adding more clusters, and ($ii$) the \textit{total efficiency} attained by the partitioning in covering the feature importance (\ie $\pmb{g^Tx}$, which is bounded by $m$).
+
+Also, borrowing from previous notation, we can denote as $\pmb{g_j}=\Theta(\pmb{s_j})$ the gain associated with bringing together classes into a set/cluster $\pmb{s_j}$, and express it as
+\begin{equation}
+    \Theta(\pmb{s_j}) = \max_{\pmb{\phi}} \quad \frac{\pmb{s_j^TW\phi}}{\pmb{1^T\phi}} \quad \text{s.t.} \quad \pmb{\phi} \in \mathbb{Z}_2^r,
+    \label{eq:opt-gain-v02}
+\end{equation}
+where the numerator is the total weight (importance) of the set/cluster considering only features $\pmb{\phi}$, and the denominator is the number of features used.
+%
+The expression in~\eqref{eq:opt-gain-v02} can be interpreted as the \textit{total importance per feature} of the set/cluster under the selected feature set $\pmb{\phi}$. The expression favors the grouping of the largest number of classes that share a limited set of high-weight features.
+
+Other formulations are also possible. For instance, one could force a linear impact of the number of features, replacing~\eqref{eq:opt-gain-v02} with the following expression
+\begin{equation}
+    \Theta(\pmb{s_j}) = \max_{\pmb{\phi}} \quad \pmb{s_j^TW\phi} \cdot \frac{r-\pmb{1^T\phi}}{r-1} \quad \text{s.t.} \quad \pmb{\phi} \in \mathbb{Z}_2^r,
+    \label{eq:opt-gain-v03}
+\end{equation}
+which is also bounded by $m$, and only changes the severity of including new features in terms of added cost.
+
+One could also expand~\eqref{eq:opt-gain-v02} by penalizing the grouping of classes that have different accuracy (\ie F1 score) according to the unconstrained model analysis in Section~\ref{sub:feature_importance}, \eg
+\begin{equation}
+    \Theta(\pmb{s_j}) = \max_{\pmb{\phi}} \quad \frac{\pmb{s_j^TW\phi}}{\pmb{1^T\phi}} \cdot \frac{1}{1+\Delta(\pmb{s_j})} \quad \text{s.t.} \quad \pmb{\phi} \in \mathbb{Z}_2^r,
+    \label{eq:opt-gain-v04}
+\end{equation}
+where
+\begin{equation}
+    \Delta(\pmb{s_j}) = \max_{i\in\pmb{s_j}|\pmb{s_j}(i)=1} f_i - \min_{i\in\pmb{s_j}|\pmb{s_j}(i)=1} f_i,
+\end{equation}
+where $f_i$ denotes the F1 score of class $C_i$ from the unconstrained model.
+Here, the expression in~\eqref{eq:opt-gain-v04} is the same as that in~\eqref{eq:opt-gain-v02} if the classes in $\pmb{s_j}$ all have the same identical F1 scores in the unconstrained model. However, the value is reduced as the different between the two farthest F1 scores of classes in the set/cluster grows. We note that also~\eqref{eq:opt-gain-v04} is bounded by $m$, hence~\eqref{eq:opt-cost-v02} remains valid.
+
+\subsection{Relating the optimization problem and heuristic}
+
+The heuristic described in Sections~\ref{sub:feature_selection} and~\ref{sub:clustering} basically splits the problem into ($i$) fixing $\pmb{\phi}$ and ($ii$) computing a pairwise distance between classes and running a hierarchical agglomerative clustering based on it.
+
+In order to align the heuristic to the problem, we should slightly update the heuristic procedure as follows.
+\begin{itemize}
+    \item Run the feature selection per class exactly as described in Section~\ref{sub:feature_selection}, which basically defines a mask $\pmb{\phi_a}$ for each class $C_a$
+    \item For each pair of classes $C_a$ and $C_b$, compute a pairwise distance metric. This needs to be updated by:
+    \begin{enumerate}
+        \item considering the set/cluster $\pmb{s_j}$ that only contains those two classes, \ie has $1$'s at positions $p$ and $q$, and $0$'s elsewhere;
+        \item fixing $\pmb{\phi}$ via an elementwise binary operation on $\pmb{\phi_a}$ and $\pmb{\phi_b}$, for instance fixing $\pmb{\phi}=\pmb{\phi_a}\;\&\;\pmb{\phi_b}$ uses the union of the features retained for classes $C_a$ and $C_b$, or fixing $\pmb{\phi}=\pmb{\phi_a}\;|\;\pmb{\phi_b}$ uses the intersection of those features;
+        \item compute $\Theta(\pmb{s_j})$ using the $\pmb{s_j}$ and $\pmb{\phi}$ defined at steps 1) and 2) above, and use the resulting cost $c_j$ derived from~\eqref{eq:opt-cost-v01} or~\eqref{eq:opt-cost-v02} as the pairwise distance.
+    \end{enumerate}
+    \item Finally run the hierarchical agglomerative clustering algorithm, where it would be ideal if at each level the distance between classes or clusters were recomputed according to the procedure at the point above (which provides maximum adherence to the optimization problem). Using the legacy distance update of the library implementing the algorithm is also fine but likely deviates more from the optimum.
+\end{itemize}

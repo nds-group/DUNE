@@ -1,0 +1,50 @@
+\begin{table}[t]
+\centering
+\resizebox{0.95\columnwidth}{!}{
+% %Version 1
+% % \begin{tabular}{@{}lcccccrrc@{}}
+% % \toprule
+% %         & \multicolumn{4}{c}{Benchmarks}          & \multicolumn{4}{c}{Dune}                                                                      \\ \midrule
+% % Dataset & Flowrest & Jewel  & Netbeacon & Mousika & SW1                             & \multicolumn{1}{c}{SW2} & \multicolumn{1}{c}{SW3} & TOTAL   \\ \midrule
+% % UNSW    & 398,36   & 413,11 & 421,31    & 303,28  & \multicolumn{1}{r}{457,3770492} & 454,0983607             & 435,2459016             & 1137,70 \\ \midrule
+% % ToN-IoT & 433,61   & 446,72 & 436,07    & 300,82  & \multicolumn{1}{r}{432,7868852} & 401,6393443             & 434,4262295             & 1183,61 \\ \bottomrule
+% % \end{tabular}
+
+% %Version 2
+% % \begin{tabular}{@{}lcccccrrc@{}}
+% % \toprule
+% %         & Flowrest & Jewel  & Netbeacon & Mousika & \multicolumn{4}{c}{Dune}                                                                      \\ \cmidrule(l){7-10} 
+% % Dataset &          &        &           &         & SW1                             & \multicolumn{1}{c}{SW2} & \multicolumn{1}{c}{SW3} & TOTAL   \\ \midrule
+% % UNSW    & 398,36   & 413,11 & 421,31    & 303,28  & \multicolumn{1}{r}{457,3770492} & 454,0983607             & 435,2459016             & 1137,70 \\ 
+% % ToN-IoT & 433,61   & 446,72 & 436,07    & 300,82  & \multicolumn{1}{r}{432,7868852} & 401,6393443             & 434,4262295             & 1183,61 \\ \bottomrule
+% % \end{tabular}
+% %Version 3
+\begin{tabular}{@{}lccccccrrc@{}}
+\toprule
+                 % & \multicolumn{5}{c}{Benchmarks}          & \multicolumn{4}{c}{Dune}                                                                      \\ \cmidrule(lr){2-6} \cmidrule(l){7-10}
+\textbf{Dataset} & No inference & Mousika & Flowrest & Netbeacon & Jewel  &  Dune   \\ \midrule
+\textbf{UNSW}    &  852.54 & 871.64  & 966.72   & 989.67    & 981.47  & 1137,70 \\
+\textbf{ToN-IoT } & 852.54 & 869.18  & 1001.97   & 1004.43    & 1015.08 & 1183,61 \\ \bottomrule
+\end{tabular}
+}
+\caption{Latency in \textit{ns} of all models across three switches.}
+\vspace*{-16pt}
+\end{table}
+
+
+% \begin{table}[]
+% \centering
+% \resizebox{0.8\columnwidth}{!}{
+% %Version 2
+% \begin{tabular}{@{}lccccccrrc@{}}
+% \toprule
+%                  % & \multicolumn{5}{c}{Benchmarks}          & \multicolumn{4}{c}{Dune}                                                                      \\ \cmidrule(lr){2-6} \cmidrule(l){7-10}
+% \textbf{Dataset} & No Inference & Mousika & Jewel  &  Dune   \\ \midrule
+% \textbf{UNSW}    &  852.54 & 871.64  & 981.47  & 1137,70 \\
+% \textbf{ToN-IoT } & 852.54 & 869.18    & 1015.08 & 1183,61 \\ \bottomrule
+% \end{tabular}
+% }
+% \caption{Latency, in \textit{ns}, of \name and the benchmarks across three switches.}
+\label{tab:latency}
+% \vspace*{-13pt}
+% \end{table}

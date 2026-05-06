@@ -1,0 +1,154 @@
+\documentclass[onecolumn,letter,10pt]{article}
+\usepackage{color}
+\usepackage{bm}
+\usepackage{placeins}
+\usepackage{float}
+\usepackage{tabularx,colortbl}
+\usepackage{url}                    % for better handling of URL
+\usepackage{lscape}                 % allow to use \begin{landscape}, which makes a page in landscape.
+\usepackage{mathrsfs}
+\usepackage{caption}
+
+\usepackage{xcolor}
+\usepackage{cite,graphicx,amsmath,amssymb,amsthm,mathtools}
+\usepackage{geometry}
+\geometry{scale=0.8}
+\usepackage{soul}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\makeatletter
+\def\@setsize#1#2#3#4{
+    \@nomath#1
+    \let\@currsize#1
+    \baselineskip #2
+    \baselineskip \baselinestretch\baselineskip
+    \parskip \baselinestretch\parskip
+    \setbox\strutbox \hbox{
+        \vrule height.7\baselineskip
+            depth.3\baselineskip
+            width\z@}
+    \skip\footins \baselinestretch\skip\footins
+    \normalbaselineskip\baselineskip#3#4}
+\makeatother
+
+\makeatletter
+\newcommand{\setstretch}[1]{
+    \def\baselinestretch{#1}%
+    \@currsize
+    }
+\makeatother
+
+\makeatletter
+\newenvironment{salign}{
+    \vskip 0.0\baselineskip
+    \setstretch{1}
+    \start@align\@ne\st@rredfalse\m@ne
+    }{
+    \math@cr
+    \black@\totwidth@
+    \egroup
+    \ifingather@
+        \restorealignstate@
+        \egroup
+        \nonumber
+        \ifnum0=`{\fi\iffalse}\fi
+        \else
+        $$%
+    \fi
+    \ignorespacesafterend
+    \vskip 0.6\baselineskip
+    \par
+    \noindent
+    }
+\makeatother
+
+\newcommand{\mySep}{\vspace{8pt}}
+
+% adjust page size a bit
+\setlength\textwidth{15cm}
+\setlength\oddsidemargin{.46cm}
+
+\setlength\parindent{0pt} % Make \noindent for the whole document
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{document}
+
+
+
+
+
+\thispagestyle{empty}
+
+%\hfill \today\\[2\baselineskip]
+{\centering
+    {\LARGE\bfseries Differences between the manuscript and its preliminary version published in the proceedings of IEEE INFOCOM 2025}\\\vspace*{0.5cm}
+    %
+    %
+    \normalsize 
+		Beyza~B\"{u}t\"{u}n, David de Andres Hernandez, Alexis Carre, Michele~Gucciardo, and Marco Fiore\vspace*{0.1cm}\\
+}
+		
+\vspace*{1\baselineskip}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% \section{Introduction}\label{sec:Introduction}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Explain motivation, why the problem is interesting for the journal, why the solution is interesting for the audience. Explain main points and challenged. 
+
+% Explain differences w.r.t. to conference. Check what they ask in detail for this kind of submissions in the web page
+
+\noindent This manuscript builds on our earlier work, presented at the IEEE INFOCOM 2025 conference~\cite{DUNE}, where it received the Best Paper Award and was thus selected for \ul{fast-tracking to IEEE Transactions on Networking}. Below, we outline the major differences between the conference version and this extended manuscript, which were mostly triggered by constructive comments from reviewers of the original INFOCOM submission that could not be addressed in the camera-ready version of the conference paper.
+
+\begin{enumerate}
+   
+    \item In the original conference version, we only considered a small-scale linear network topology for our experiments.
+    Hence, that earlier version of DUNE did not include a mechanism for deploying sub-models in practical complex topologies with multi-path routing that are encountered in the real world. In this extended manuscript, we enhance DUNE so that it can be deployed in large-scale realistic networks. To this end, we propose a new planning stage, adapted from the DINC Planner~\cite{dinc-conext23}, which determines optimal placement strategies for DUNE-generated sub-models along network-defined paths in a given topology. This new stage completes the previous DUNE pipeline and ensures that all sub-models are executed in the correct order while minimizing duplication across the network. We formulate this problem as an Integer Linear Program (ILP) and present the details of our Planner in Section III-G.
+    
+    \item The small-scale linear topology in the conference version hid several challenging corner cases that can arise when a packet or flow traverses ML sub-models deployed in switches along multiple intertwining paths. In this extended manuscript, we now ensure that the operation of DUNE covers all possible distributed inference scenarios by designing a state machine that tracks the provenance of classification results within each switch. This original state machine interprets incoming packets using header data from upstream switches and defines the logical pipeline to decide whether to generate a local result or simply propagate it to downstream switches. The state machine and the scenarios it addresses are explained in Section IV-B.
+    
+    \item Experiments were limited to a hardware implementation running on Intel Tofino ASICs in the original conference version. While such an hardware  implementation of DUNE was essential to prove viability in real-world systems, programmable switches are expensive equipment that is often unavailable to researchers. This limited both replicability of the solution and further research on the topic. In the extended manuscript, we implement DUNE also in software as a modular framework on top of the popular bmv2 model, so that our solution can be run on the Mininet emulator even with low-end desktop machines. The implementation details of our software implementation of DUNE are presented in Section~V. We validate the correctness of the software version against the hardware one in Section~VII-B, where we also contrast the performance of both software and hardware implementations against an upper bound represented by the complete, unconstrained ML model implemented in Python and running on a high-end server.
+    
+    \item The software implementation of the DUNE pipeline enhanced with the final planning stage allow us experimenting beyond the simple, small-scale, linear topology considered in the original conference version. In the extended manuscript, we thus test DUNE in complex fat-tree topologies--a specific instance of the Clos topology that is widely adopted in modern data centers for its scalability and high bandwidth. Evaluations in Section~VII-B prove the effectiveness of DUNE also in these much more challenging network scenarios.
+    
+    %\item We evaluate DUNE on complex topologies and present the results in Section VII-B. Specifically, we include a table comparing the number of model deployments required to deploy sub-models in several fat-tree topologies, representative of typical data center sizes. We also provide a plot contrasting the performance of software and hardware implementations against the theoretical upper bound (from Python). In the software, we evaluate both linear and fat-tree topologies, whereas in the hardware, we run the evaluation for only the linear topology. All experiments here are conducted using the ToN-IoT dataset.
+
+    \item The discussion of related work in Section II has been expanded to include recently proposed approaches, namely monolithic tree-based, monolithic neural-network-based, and distributed solutions. The newly added tree-based studies are Sentinelx~\cite{sentinelx} and Leo~\cite{Leo}; the neural network–based solution is Quark~\cite{quark}; and the distributed approach is MUTA~\cite{Muta}. All these works have appeared during year 2025. Including these works provides an up-to-date context and makes it clear how our contribution advances beyond existing approaches, thus emphasizing the novelty of our design.
+
+    \item Finally, the manuscript has been substantially revised compared to the original conference version, with several sections re-written to improve clarity.
+    
+\end{enumerate}
+
+\begin{thebibliography}{10}
+
+
+\bibitem{DUNE}
+B. Bütün, D. De Andres Hernandez, M. Gucciardo and M. Fiore, "DUNE: Distributed Inference in the User Plane," IEEE INFOCOM 2025 - IEEE Conference on Computer Communications, London, United Kingdom, 2025, pp. 1-10, doi: 10.1109/INFOCOM55648.2025.11044678
+
+\bibitem{dinc-conext23}
+C. Zheng, H. Tang, M. Zang, X. Hong, A. Feng, L. Tassiulas and N. Zilberman, "DINC: Toward Distributed In-Network Computing," Proc. ACM Netw. 1, CoNEXT3, Article 14 (December 2023), doi: 10.1145/3629136.
+
+\bibitem{sentinelx}
+Z. Zhang et al., "SentinelX: A Lightweight Malicious Traffic Detection System Based on Programmable Switches," IEEE INFOCOM 2025 - IEEE Conference on Computer Communications, London, United Kingdom, 2025, pp. 1-10, doi: 10.1109/INFOCOM55648.2025.11044759.
+
+\bibitem{Leo}
+S. U. Jafri et al., "Leo: Online ML-based traffic classification at Multi-
+Terabit line rate," In 21st USENIX Symposium on Networked Systems
+Design and Implementation (NSDI 24), pp. 1573–1591, Santa Clara,
+CA, April 2024. USENIX Association.
+
+\bibitem{quark}
+M. Zhang et al., "Quark: Implementing Convolutional Neural Networks Entirely on Programmable Data Plane," IEEE INFOCOM 2025 - IEEE Conference on Computer Communications, London, United Kingdom, 2025, pp. 1-10, doi: 10.1109/INFOCOM55648.2025.11044654.
+
+\bibitem{Muta}
+K. Zhang, C. Zheng, N. Samaan, A. Karmouch and N. Zilberman, "MUTA: Enabling Multi-Task Neural Network Inference in Programmable Data-Planes," 2025 IEEE 26th International Conference on High Performance Switching and Routing (HPSR), Suita, Osaka, Japan, 2025, pp. 1-6, doi: 10.1109/HPSR64165.2025.11038854.
+
+\end{thebibliography}
+
+
+\end{document}
+

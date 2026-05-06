@@ -1,0 +1,7 @@
+\RequirePackage{shellesc}
+\providecommand{\DIFadd}[1]{{\protect\color{blue}#1}} % make text not underlined
+% Remove deleted text completely
+% \providecommand{\DIFdel}[1]{}
+\ShellEscape{latexdiff main.tex DUNE_extension_rev.tex > main-d.tex}
+\input{main-d}
+\documentclass{dummy}
