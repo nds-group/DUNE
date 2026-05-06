@@ -849,10 +849,11 @@ By defining a vector of binary decision variables $\pmb{x} \in \mathbb{Z}_2^n$ w
 %
 The formal definition of the optimization problem is then
 \begin{equation}
-\max_{\pmb{x}} \; \frac{1}{c(\pmb{x})}\cdot\pmb{g}^T\pmb{x} \qquad \text{s.t.} \quad \pmb{Ax}=\pmb{1},
+\max_{\pmb{x}} \; \frac{1}{c(\pmb{x})}\cdot\pmb{g}^T\pmb{x} \qquad \text{s.t.} \quad \pmb{Ax}=\pmb{1},\; \pmb{1}_n^T\pmb{x} \leq k,
 \label{eq:opt-objective}
 \end{equation}
 where $c(\pmb{x})$ captures requirement ($i$) above and denotes the cost of partitioning the inference task into the number of blocks defined by $\pmb{x}$, whereas $\pmb{g}^T\pmb{x}$ models requirement ($ii$) as the accuracy achieved for the blocks in $\pmb{x}$ with minimum features.
+The parameter $k \in \{2, \dots, m\}$ is an optional upper bound on the number of blocks in the partition, reflecting a deployment constraint on the number of available programmable devices; when unspecified (\ie $k=m$), the constraint is trivially satisfied for any partition and the problem reduces to the unconstrained formulation.
 
 More precisely, the cost $c(\pmb{x})$ is expressed as
 \begin{equation}
@@ -893,16 +894,15 @@ Unfortunately, the objective function in~\eqref{eq:opt-objective} is non-linear,
 \label{alg:greedy}
 \begin{algorithmic}[1]
 \small
-\Require $\textit{fix\_level} \in \{2, \dots, m\} \cup \{\emptyset\}$
-\State $\textit{level} \gets m$, $\textit{gain} \gets 0$, $(\textit{blocks}) \gets \text{all single-element blocks}$
-\For{$i = m, \dots, 2$} \label{alg:for-m}
-    \State $\textit{tuples} \gets \Call {combinations}{\textit{blocks}, 2}$ 
-    % \State $\textit{gains} \gets [ ]$
+\Require $k \in \{2, \dots, m\} \cup \{\emptyset\}$
+\State $n^* \gets m$, $\textit{gain-max} \gets 0$, $(\textit{blocks}) \gets \text{all single-element blocks}$
+\While{$|\textit{blocks}| > 1$} \label{alg:for-m}
+    \State $\textit{tuples} \gets \Call {combinations}{\textit{blocks}, 2}$
     \ForAll{$ \textit{tuple} \in \textit{tuples}$} \label{alg:for-gains-begin}
-        \State $\textit{gains} \gets \Call {computeBlockGain}{\textit{tuple}}$ %\Comment{\textcolor{blue}{includes feature selection}}
+        \State $\textit{gains} \gets \Call {computeBlockGain}{\textit{tuple}}$
     \EndFor \label{alg:for-gains-end}
     \State $\textit{best tuple} \gets argmax(\textit{gains})$ \label{alg:gain-max}
-    \ForAll{$\textit{block} \in \textit{blocks}$} \label{alg:for-update-begin} %\Comment{\textcolor{blue}{remove invalidated blocks}}
+    \ForAll{$\textit{block} \in \textit{blocks}$} \label{alg:for-update-begin}
         \ForAll{$\textit{element} \in \textit{best-tuple}$}
             \If{$\textit{element} \in \textit{block}$}
                 \State $\Call{remove}{\textit{element}, \textit{blocks}}$
@@ -910,12 +910,14 @@ Unfortunately, the objective function in~\eqref{eq:opt-objective} is non-linear,
         \EndFor
     \EndFor
     \State $\Call{add}{\textit{best-tuple}, \textit{blocks}}$ \label{alg:for-update-end}
-    \State $\textit{gain} \gets \Call{computePartitionGain}{blocks}$ \label{alg:store-max-begin}
-    \If{$\textit{gain}>\textit{gain-max}$}
-        \State $\textit{level} \gets i$
-        \State $\textit{gain-max} \gets \textit{gain}$
+    \If{$k = \emptyset$ \textbf{or} $|\textit{blocks}| \leq k$} \label{alg:store-max-begin}
+        \State $\textit{gain} \gets \Call{computePartitionGain}{blocks}$
+        \If{$\textit{gain}>\textit{gain-max}$}
+            \State $n^* \gets |\textit{blocks}|$
+            \State $\textit{gain-max} \gets \textit{gain}$
+        \EndIf
     \EndIf \label{alg:store-max-end}
-\EndFor
+\EndWhile
 \end{algorithmic}
 \end{algorithm}
 % \setlength{\textfloatsep}{\oldtextfloatsep}
@@ -926,7 +928,8 @@ The algorithm performs $m-1$ iterations (line~\ref{alg:for-m}); at each iteratio
 \footnote{Gains calculated at a previous iteration are cached and not re-computed.}
 among all current blocks (lines~\ref{alg:for-gains-begin}--\ref{alg:for-gains-end}), identifies the pair of blocks with maximum gain (line~\ref{alg:gain-max}), and updates the blocks data structure with the new merged block (lines~\ref{alg:for-update-begin}--\ref{alg:for-update-end}).
 %
-Each iteration returns a partition whose total gain is computed using~\eqref{eq:opt-objective} and possibly stored as the maximum gain achieved (lines~\ref{alg:store-max-begin}--\ref{alg:store-max-end}).
+When the partition is feasible (\ie $k=\emptyset$ or $|\textit{blocks}|\leq k$), its total gain is computed using~\eqref{eq:opt-objective} and possibly stored as the best solution (lines~\ref{alg:store-max-begin}--\ref{alg:store-max-end}).
+When $k$ is specified, the gain-maximization is restricted to partitions with at most $k$ blocks, thus enforcing the cardinality constraint in~\eqref{eq:opt-objective}.
 Such gains are not monotonic in general with respect to the iterations, but take different shapes depending on the target inference task. Figure~\ref{fig:blocks_selection} shows the evolution of the gain matching our objective function~\eqref{eq:opt-objective} over iterations, for one of the reference use cases we will present in Section~\ref{sec:experimental-setup}.
 
 The computation of the gain in~\eqref{eq:opt-gain} needs to be especially efficient since it is profusely used in Algorithm~\ref{alg:greedy}, hence we propose a computationally viable implementation with cost $O(r)$. The gain is a product of~\eqref{eq:opt-gain-psi} and~\eqref{eq:opt-gain-theta}: while the factor in~\eqref{eq:opt-gain-psi} is inexpensive, we decompose the calculation of~\eqref{eq:opt-gain-theta} into $r$ sub-problems leveraging its structure.
