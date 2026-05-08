@@ -44,7 +44,7 @@ class DataGenerationConfig:
 
 
 
-def parse_tshark_csv_to_dataframe(filename_in):
+def parse_tshark_csv_to_dataframe(filename_in, config: DataGenerationConfig):
     """
     Parses the output from tshark into a pandas DataFrame, allowing analysis of packet
     data and simplifying further processing.
@@ -87,6 +87,8 @@ def parse_tshark_csv_to_dataframe(filename_in):
                     "tcp.hdr_len", "udp.length"]
 
     packet_data = pd.read_csv(filename_in, usecols=packet_data_cols, dtype=dtypes).fillna(0)
+    if config.use_case == "UNSW":
+        packet_data['File'] = filename_in.split('/')[-1].split('.')[0]
 
     # divide by 4, since the tcp_offset counts 32-bit words
     packet_data["tcp.hdr_len"] = packet_data["tcp.hdr_len"]/4
