@@ -87,6 +87,7 @@ def parse_tshark_csv_to_dataframe(filename_in, config: DataGenerationConfig):
                     "tcp.hdr_len", "udp.length"]
 
     packet_data = pd.read_csv(filename_in, usecols=packet_data_cols, dtype=dtypes).fillna(0)
+    packet_data = packet_data[(packet_data["ip.src"] != 0) & (packet_data["ip.dst"] != 0)]
     if config.use_case == "UNSW":
         packet_data['File'] = filename_in.split('/')[-1].split('.')[0]
 
@@ -312,6 +313,7 @@ def generate_hybrid_data(packet_data, csv_file_name, n):
             packet_data.loc[packet_data['pkt_number'] >= n, feature] = (
                     packet_data.loc[packet_data['pkt_number'] >= n, feature] * 10e9).round(9)
 
+    packet_data = packet_data[packet_data['pkt_number'] <= n]
     packet_data = packet_data.assign(File=csv_file_name)
 
     return packet_data
