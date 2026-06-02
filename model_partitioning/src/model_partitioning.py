@@ -9,14 +9,14 @@ from SPP.spp import SPP
 
 if __name__ == '__main__':
     config = configparser.ConfigParser()
-    config.read('spp_params.ini.example')
+    config.read('spp_params.ini')
     use_case = config['DEFAULT']['use_case']
     n_classes = int(config[use_case]['n_classes'])
     n_features = int(config[use_case]['n_features'])
-    if 'fix_level' in config[use_case]:
-        fix_level = int(config[use_case]['fix_level'])
+    if 'k' in config[use_case]:
+        k = int(config[use_case]['k'])
     else:
-        fix_level = None
+        k = None
     weights_file = config[use_case]['weights_file']
     f1_file = config[use_case]['f1_file']
     unwanted_classes = ast.literal_eval(config[use_case]['unwanted_classes'])
@@ -24,7 +24,7 @@ if __name__ == '__main__':
     # test_classes_list.sort()
 
     spp = SPP(n_classes=n_classes, n_features=n_features, unwanted_classes=unwanted_classes, use_case=use_case,
-              weights_file=weights_file, fix_level=fix_level, f1_file=f1_file)
+              weights_file=weights_file, k=k, f1_file=f1_file)
 
     ## Solve with Heuristic and compute time
     elapsed_times = []
